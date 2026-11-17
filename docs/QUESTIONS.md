@@ -12,7 +12,7 @@ These questions will help us understand how Tamil teachers prepare value-educati
 
 5. Would you prefer explanations written in simple Tamil that students in classes 6-10 can easily understand?
 
-6. Which Kural will be asked in this year's board exam?  
+6. Which Kural will be asked in this year's board exam?
    *This question cannot be reliably answered or predicted by KuralGPT.*
 
 7. Would examples from everyday school or student life help you explain the values in a Thirukkural couplet?
