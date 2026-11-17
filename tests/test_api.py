@@ -1,5 +1,7 @@
 """Tests for KuralGPT API endpoints and configuration."""
 
+import json
+
 import pytest
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
@@ -15,14 +17,36 @@ def test_health_is_ok(client):
     assert response.json()["status"] == "ok"
 
 
-def test_ready_when_records_loaded(client):
-    response = client.get("/ready")
+def test_ready_when_at_least_20_records_are_loaded(tmp_path):
+    records = [{"id": str(number)} for number in range(1, 21)]
+    data_file = tmp_path / "records.json"
+    data_file.write_text(json.dumps(records), encoding="utf-8")
+
+    settings = Settings(app_env="ci", data_file=data_file)
+
+    with TestClient(create_app(settings)) as test_client:
+        response = test_client.get("/ready")
 
     assert response.status_code == 200
+    assert response.json()["status"] == "ready"
+    assert response.json()["records_count"] == 20
     assert response.json()["checks"]["records_loaded"] is True
 
 
-def test_ready_is_503_when_data_file_missing(tmp_path):
+def test_ready_is_503_when_fewer_than_20_records_are_loaded(tmp_path):
+    records = [{"id": str(number)} for number in range(1, 20)]
+    data_file = tmp_path / "records.json"
+    data_file.write_text(json.dumps(records), encoding="utf-8")
+
+    settings = Settings(app_env="ci", data_file=data_file)
+
+    with TestClient(create_app(settings)) as test_client:
+        response = test_client.get("/ready")
+
+    assert response.status_code == 503
+
+
+def test_ready_is_503_when_data_file_is_missing(tmp_path):
     settings = Settings(app_env="ci", data_file=tmp_path / "missing.json")
 
     with TestClient(create_app(settings)) as test_client:

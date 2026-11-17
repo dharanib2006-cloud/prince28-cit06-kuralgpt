@@ -7,6 +7,8 @@ from kuralgpt.store import DocumentStore
 
 router = APIRouter(tags=["health"])
 
+MINIMUM_RECORDS = 20
+
 
 @router.get("/health")
 def health() -> dict[str, str]:
@@ -18,16 +20,21 @@ def health() -> dict[str, str]:
 def ready(
     store: DocumentStore = Depends(get_document_store),
 ) -> dict:
-    """Check whether the application data is ready."""
-    if not store.loaded:
+    """Check whether enough application data is available."""
+    records_count = len(store.records)
+
+    if not store.loaded or records_count < MINIMUM_RECORDS:
         raise HTTPException(
             status_code=503,
-            detail="Document data is not available.",
+            detail=(
+                f"At least {MINIMUM_RECORDS} records are required. "
+                f"Currently available: {records_count}."
+            ),
         )
 
     return {
         "status": "ready",
-        "records_count": len(store.records),
+        "records_count": records_count,
         "checks": {
             "records_loaded": True,
         },
