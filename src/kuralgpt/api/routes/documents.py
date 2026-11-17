@@ -46,7 +46,7 @@ def get_document(
     if record is None:
         raise ApiError(
             status_code=404,
-            title="Document Not Found",
+            title="Not Found",
             detail=f"No document found with ID '{document_id}'.",
         )
 

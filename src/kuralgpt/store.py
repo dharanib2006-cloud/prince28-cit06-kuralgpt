@@ -66,6 +66,7 @@ class DocumentStore:
             return self.records.copy()
 
         searchable_fields = (
+            "title",
             "couplet_tamil",
             "meaning_tamil",
             "meaning_english",

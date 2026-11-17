@@ -17,7 +17,7 @@ def health() -> dict[str, str]:
 @router.get("/ready")
 def ready(
     store: DocumentStore = Depends(get_document_store),
-) -> dict[str, str | int]:
+) -> dict:
     """Check whether the application data is ready."""
     if not store.loaded:
         raise HTTPException(
@@ -28,4 +28,7 @@ def ready(
     return {
         "status": "ready",
         "records_count": len(store.records),
+        "checks": {
+            "records_loaded": True,
+        },
     }

@@ -18,7 +18,6 @@ class Settings(BaseSettings):
 
     app_name: str = "kuralgpt"
     app_env: str = Field(
-        default="local",
         pattern="^(local|ci|production)$",
     )
     log_level: str = "INFO"
