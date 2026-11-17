@@ -1,24 +1,23 @@
 """Document listing, searching, and retrieval endpoints."""
 
-from typing import Any
-
 from fastapi import APIRouter, Depends, Query
 
 from kuralgpt.api.deps import get_document_store
 from kuralgpt.api.errors import ApiError
+from kuralgpt.schemas import DocumentListResponse, KuralRecord
 from kuralgpt.store import DocumentStore
 
 router = APIRouter(prefix="/v1/documents", tags=["documents"])
 
 
-@router.get("")
+@router.get("", response_model=DocumentListResponse)
 def list_documents(
     limit: int = Query(default=20, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
     q: str | None = Query(default=None),
     kural_no: int | None = Query(default=None, ge=1, le=1330),
     store: DocumentStore = Depends(get_document_store),
-) -> dict[str, Any]:
+) -> dict:
     """List documents with optional search, Kural number filter, and pagination."""
 
     records = store.records
@@ -55,11 +54,11 @@ def list_documents(
     }
 
 
-@router.get("/{document_id}")
+@router.get("/{document_id}", response_model=KuralRecord)
 def get_document(
     document_id: str,
     store: DocumentStore = Depends(get_document_store),
-) -> dict[str, Any]:
+) -> dict:
     """Retrieve one document using its ID."""
     record = store.get_record(document_id)
 

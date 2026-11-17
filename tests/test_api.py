@@ -96,7 +96,9 @@ def test_get_document_found(client):
     response = client.get("/v1/documents/001")
 
     assert response.status_code == 200
-    assert response.json()["title"] == "Alpha guideline"
+    assert response.json()["id"] == "001"
+    assert response.json()["kural_no"] == 1
+    assert response.json()["paal"] == "அறத்துப்பால்"
 
 
 def test_missing_document_is_problem_details(client):
