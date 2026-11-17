@@ -46,11 +46,7 @@ def test_search_filters_records(client):
 
 
 def test_filter_by_kural_number(client):
-    response = client.get(
-        "/v1/documents",
-        params={"kural_no": 2},
-    )
-
+    response = client.get("/v1/documents", params={"kural_no": 2})
     body = response.json()
 
     assert response.status_code == 200
@@ -58,6 +54,18 @@ def test_filter_by_kural_number(client):
     assert len(body["items"]) == 1
     assert body["items"][0]["id"] == "002"
     assert body["items"][0]["kural_no"] == 2
+
+
+def test_statistics_returns_total_and_counts_by_paal(client):
+    response = client.get("/v1/stats")
+    body = response.json()
+
+    assert response.status_code == 200
+    assert body["total_records"] == 3
+    assert body["counts_by_paal"] == {
+        "அறத்துப்பால்": 2,
+        "பொருட்பால்": 1,
+    }
 
 
 def test_get_document_found(client):

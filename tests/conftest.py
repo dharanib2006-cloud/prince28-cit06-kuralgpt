@@ -8,11 +8,28 @@ from fastapi.testclient import TestClient
 from kuralgpt.api.main import create_app
 from kuralgpt.config import Settings
 
-# Sample records used for API testing.
 SAMPLE = [
-    {"id": "001", "title": "Alpha guideline", "year": 2023, "kural_no": 1},
-    {"id": "002", "title": "Beta circular", "year": 2024, "kural_no": 2},
-    {"id": "003", "title": "Gamma notice", "year": 2025, "kural_no": 3},
+    {
+        "id": "001",
+        "title": "Alpha guideline",
+        "year": 2023,
+        "kural_no": 1,
+        "paal": "அறத்துப்பால்",
+    },
+    {
+        "id": "002",
+        "title": "Beta circular",
+        "year": 2024,
+        "kural_no": 2,
+        "paal": "அறத்துப்பால்",
+    },
+    {
+        "id": "003",
+        "title": "Gamma notice",
+        "year": 2025,
+        "kural_no": 3,
+        "paal": "பொருட்பால்",
+    },
 ]
 
 
@@ -20,7 +37,7 @@ SAMPLE = [
 def data_file(tmp_path):
     """Create a temporary JSON file containing fake records."""
     path = tmp_path / "records.json"
-    path.write_text(json.dumps(SAMPLE), encoding="utf-8")
+    path.write_text(json.dumps(SAMPLE, ensure_ascii=False), encoding="utf-8")
     return path
 
 
