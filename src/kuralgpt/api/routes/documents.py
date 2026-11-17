@@ -16,16 +16,36 @@ def list_documents(
     limit: int = Query(default=20, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
     q: str | None = Query(default=None),
+    kural_no: int | None = Query(default=None, ge=1, le=1330),
     store: DocumentStore = Depends(get_document_store),
 ) -> dict[str, Any]:
-    """List documents with optional text search and pagination."""
+    """List documents with optional search, Kural number filter, and pagination."""
+
+    records = store.records
+
+    if kural_no is not None:
+        records = [record for record in records if record.get("kural_no") == kural_no]
+
     if q:
-        records = store.search_records(q)
-        total = len(records)
-        records = records[offset : offset + limit]
-    else:
-        total = len(store.records)
-        records = store.list_records(limit=limit, offset=offset)
+        query = q.casefold().strip()
+        searchable_fields = (
+            "title",
+            "couplet_tamil",
+            "meaning_tamil",
+            "meaning_english",
+            "adhikaram",
+            "paal",
+            "theme",
+        )
+
+        records = [
+            record
+            for record in records
+            if any(query in str(record.get(field, "")).casefold() for field in searchable_fields)
+        ]
+
+    total = len(records)
+    records = records[offset : offset + limit]
 
     return {
         "total": total,

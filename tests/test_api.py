@@ -45,6 +45,21 @@ def test_search_filters_records(client):
     assert [record["id"] for record in response.json()["items"]] == ["002"]
 
 
+def test_filter_by_kural_number(client):
+    response = client.get(
+        "/v1/documents",
+        params={"kural_no": 2},
+    )
+
+    body = response.json()
+
+    assert response.status_code == 200
+    assert body["total"] == 1
+    assert len(body["items"]) == 1
+    assert body["items"][0]["id"] == "002"
+    assert body["items"][0]["kural_no"] == 2
+
+
 def test_get_document_found(client):
     response = client.get("/v1/documents/001")
 

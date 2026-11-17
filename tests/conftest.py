@@ -8,11 +8,11 @@ from fastapi.testclient import TestClient
 from kuralgpt.api.main import create_app
 from kuralgpt.config import Settings
 
-# Small fake records: tests do not depend on the real Kural data file.
+# Sample records used for API testing.
 SAMPLE = [
-    {"id": "001", "title": "Alpha guideline", "year": 2023},
-    {"id": "002", "title": "Beta circular", "year": 2024},
-    {"id": "003", "title": "Gamma notice", "year": 2025},
+    {"id": "001", "title": "Alpha guideline", "year": 2023, "kural_no": 1},
+    {"id": "002", "title": "Beta circular", "year": 2024, "kural_no": 2},
+    {"id": "003", "title": "Gamma notice", "year": 2025, "kural_no": 3},
 ]
 
 
