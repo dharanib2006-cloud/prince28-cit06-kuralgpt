@@ -1,7 +1,8 @@
 """Shared fixtures for KuralGPT API tests."""
 
 import json
-from unittest.mock import MagicMock
+from types import SimpleNamespace
+from unittest.mock import AsyncMock
 
 import pytest
 from fastapi.testclient import TestClient
@@ -55,7 +56,6 @@ SAMPLE = [
 
 @pytest.fixture
 def data_file(tmp_path):
-    """Create a temporary JSON file containing fake records."""
     path = tmp_path / "records.json"
     path.write_text(json.dumps(SAMPLE, ensure_ascii=False), encoding="utf-8")
     return path
@@ -63,9 +63,9 @@ def data_file(tmp_path):
 
 @pytest.fixture
 def client(data_file, monkeypatch):
-    """Create a test client with isolated sample data and a mocked database."""
+    """API client with mocked asynchronous repository and database."""
 
-    def fake_list_documents(
+    async def fake_list_documents(
         session,
         limit=20,
         offset=0,
@@ -88,10 +88,9 @@ def client(data_file, monkeypatch):
             term = q.lower()
             records = [r for r in records if term in json.dumps(r, ensure_ascii=False).lower()]
 
-        total = len(records)
-        return records[offset : offset + limit], total
+        return records[offset : offset + limit], len(records)
 
-    def fake_get_document(session, document_id):
+    async def fake_get_document(session, document_id):
         return next(
             (record for record in SAMPLE if record["id"] == document_id),
             None,
@@ -106,11 +105,13 @@ def client(data_file, monkeypatch):
         fake_get_document,
     )
 
-    mock_session = MagicMock()
+    mock_session = AsyncMock()
     mock_session.scalar.return_value = len(SAMPLE)
-    mock_session.scalars.return_value.all.return_value = [record["paal"] for record in SAMPLE]
+    mock_session.scalars.return_value = SimpleNamespace(
+        all=lambda: [record["paal"] for record in SAMPLE]
+    )
 
-    def override_get_db_session():
+    async def override_get_db_session():
         yield mock_session
 
     settings = Settings(app_env="ci", data_file=data_file)

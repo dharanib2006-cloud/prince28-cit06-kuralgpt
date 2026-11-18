@@ -1,15 +1,19 @@
-"""Database queries for KuralGPT documents."""
-
 from typing import Any
 
 from sqlalchemy import String, cast, func, or_, select
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from kuralgpt.models import Document
 
 
-def list_documents(
-    session: Session,
+def document_to_record(document: Document) -> dict[str, Any]:
+    record = dict(document.metadata_)
+    record["id"] = document.external_id
+    return record
+
+
+async def list_documents(
+    session: AsyncSession,
     limit: int = 20,
     offset: int = 0,
     q: str | None = None,
@@ -19,77 +23,60 @@ def list_documents(
     language: str | None = None,
     commentator: str | None = None,
 ) -> tuple[list[dict[str, Any]], int]:
-    """List documents with optional filters and pagination."""
 
     filters = []
+    metadata = Document.metadata_
 
     if kural_no is not None:
-        filters.append(
-            cast(Document.document_metadata["kural_no"].as_string(), String) == str(kural_no)
-        )
+        filters.append(cast(metadata["kural_no"].as_string(), String) == str(kural_no))
 
     if paal:
-        filters.append(Document.document_metadata["paal"].as_string() == paal)
+        filters.append(metadata["paal"].as_string() == paal)
 
     if adhikaram:
-        filters.append(Document.document_metadata["adhikaram"].as_string() == adhikaram)
+        filters.append(metadata["adhikaram"].as_string() == adhikaram)
 
     if language:
-        filters.append(Document.document_metadata["languages"].contains([language]))
+        filters.append(metadata["languages"].contains([language]))
 
     if commentator:
-        filters.append(Document.document_metadata["commentator"].as_string() == commentator)
+        filters.append(metadata["commentator"].as_string() == commentator)
 
     if q:
-        search_term = f"%{q.strip()}%"
-        searchable_fields = [
+        term = f"%{q.strip()}%"
+        fields = [
             Document.title,
-            Document.document_metadata["couplet_tamil"].as_string(),
-            Document.document_metadata["meaning_tamil"].as_string(),
-            Document.document_metadata["meaning_english"].as_string(),
-            Document.document_metadata["commentary_tamil"].as_string(),
-            Document.document_metadata["adhikaram"].as_string(),
-            Document.document_metadata["paal"].as_string(),
-            Document.document_metadata["theme"].as_string(),
+            metadata["couplet_tamil"].as_string(),
+            metadata["meaning_tamil"].as_string(),
+            metadata["meaning_english"].as_string(),
+            metadata["commentary_tamil"].as_string(),
+            metadata["adhikaram"].as_string(),
+            metadata["paal"].as_string(),
+            metadata["theme"].as_string(),
         ]
+        filters.append(or_(*[cast(field, String).ilike(term) for field in fields]))
 
-        filters.append(
-            or_(*[cast(field, String).ilike(search_term) for field in searchable_fields])
-        )
-
-    count_statement = select(func.count()).select_from(Document)
+    count_stmt = select(func.count()).select_from(Document)
 
     if filters:
-        count_statement = count_statement.where(*filters)
+        count_stmt = count_stmt.where(*filters)
 
-    total = session.scalar(count_statement) or 0
+    total = await session.scalar(count_stmt) or 0
 
-    statement = select(Document).where(*filters).order_by(Document.id).offset(offset).limit(limit)
+    stmt = select(Document).where(*filters).order_by(Document.id).offset(offset).limit(limit)
 
-    documents = session.scalars(statement).all()
+    result = await session.scalars(stmt)
 
-    records = []
-
-    for document in documents:
-        record = dict(document.document_metadata)
-        record["id"] = document.id
-        records.append(record)
-
-    return records, total
+    return [document_to_record(doc) for doc in result.all()], total
 
 
-def get_document(
-    session: Session,
+async def get_document(
+    session: AsyncSession,
     document_id: str,
 ) -> dict[str, Any] | None:
-    """Retrieve one document by its ID."""
 
-    document = session.get(Document, document_id)
+    stmt = select(Document).where(Document.external_id == document_id)
 
-    if document is None:
-        return None
+    document = await session.scalar(stmt)
 
-    record = dict(document.document_metadata)
-    record["id"] = document.id
-
-    return record
+    return document_to_record(document) if document is not None else None

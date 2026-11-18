@@ -1,5 +1,3 @@
-"""KuralGPT FastAPI application factory."""
-
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
@@ -14,12 +12,12 @@ from kuralgpt.api.errors import (
 from kuralgpt.api.middleware import RequestContextMiddleware
 from kuralgpt.api.routes import documents, health, stats
 from kuralgpt.config import Settings, get_settings
+from kuralgpt.db.session import get_engine
 from kuralgpt.logging_setup import configure_logging
-from kuralgpt.store import DocumentStore
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
-    """Create and configure the KuralGPT application."""
+
     if settings is None:
         settings = get_settings()
 
@@ -27,10 +25,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-        store = DocumentStore(settings.data_file)
-        store.load()
-        app.state.document_store = store
+
+        engine = get_engine()
+        app.state.database_engine = engine
+
         yield
+
+        await engine.dispose()
 
     app = FastAPI(
         title="KuralGPT API",
@@ -40,7 +41,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
 
     app.add_exception_handler(ApiError, api_error_handler)
-    app.add_exception_handler(RequestValidationError, validation_error_handler)
+    app.add_exception_handler(
+        RequestValidationError,
+        validation_error_handler,
+    )
 
     app.add_middleware(RequestContextMiddleware)
 

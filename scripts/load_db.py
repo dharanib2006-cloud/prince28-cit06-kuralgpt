@@ -1,12 +1,14 @@
-"""Load Thirukkural records into PostgreSQL without creating duplicates."""
+"""Load Thirukkural records into PostgreSQL idempotently."""
 
+import asyncio
 import hashlib
 import json
 from pathlib import Path
 
+from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 
-from kuralgpt.database import get_engine
+from kuralgpt.db.session import get_engine
 from kuralgpt.models import Document, Page
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -38,7 +40,7 @@ def build_document(record: dict) -> dict:
     }
 
     return {
-        "id": str(record["id"]),
+        "external_id": str(record["id"]),
         "title": f"Thirukkural {record['kural_no']}",
         "source_url": SOURCE_URL,
         "licence": SOURCE_LICENCE,
@@ -49,7 +51,7 @@ def build_document(record: dict) -> dict:
     }
 
 
-def build_page(record: dict) -> dict:
+def build_page(record: dict, document_id: int) -> dict:
     """Convert a Kural record into searchable page text."""
     text_parts = [
         record.get("couplet_tamil"),
@@ -63,60 +65,83 @@ def build_page(record: dict) -> dict:
     )
 
     return {
-        "doc_id": str(record["id"]),
+        "document_id": document_id,
         "page_no": 1,
         "text": searchable_text,
     }
 
 
-def main() -> None:
-    """Load records into PostgreSQL idempotently."""
+async def main() -> None:
+    """Load records, inserting new ones and updating changed ones."""
     if not DATA_FILE.exists():
         raise FileNotFoundError(f"Data file not found: {DATA_FILE}")
 
     records = json.loads(DATA_FILE.read_text(encoding="utf-8"))
 
-    if not isinstance(records, list):
-        raise ValueError("The sample data must contain a JSON list.")
-
-    if not records:
-        raise ValueError("No records found in the sample data.")
-
-    document_rows = [build_document(record) for record in records]
-    page_rows = [build_page(record) for record in records]
+    if not isinstance(records, list) or not records:
+        raise ValueError("The sample data must contain a non-empty JSON list.")
 
     engine = get_engine()
 
+    inserted = 0
+    updated = 0
+    unchanged = 0
+
     try:
-        with engine.begin() as connection:
-            document_result = connection.execute(
-                insert(DOCUMENTS_TABLE)
-                .values(document_rows)
-                .on_conflict_do_nothing()
-                .returning(DOCUMENTS_TABLE.c.id)
-            )
+        async with engine.begin() as connection:
+            for record in records:
+                document_data = build_document(record)
 
-            documents_inserted = len(document_result.fetchall())
+                existing_result = await connection.execute(
+                    select(
+                        DOCUMENTS_TABLE.c.id,
+                        DOCUMENTS_TABLE.c.sha256,
+                    ).where(DOCUMENTS_TABLE.c.external_id == document_data["external_id"])
+                )
+                existing = existing_result.first()
 
-            page_result = connection.execute(
-                insert(PAGES_TABLE)
-                .values(page_rows)
-                .on_conflict_do_nothing()
-                .returning(PAGES_TABLE.c.doc_id)
-            )
+                if existing is None:
+                    result = await connection.execute(
+                        insert(DOCUMENTS_TABLE)
+                        .values(**document_data)
+                        .returning(DOCUMENTS_TABLE.c.id)
+                    )
+                    document_id = result.scalar_one()
+                    inserted += 1
 
-            pages_inserted = len(page_result.fetchall())
+                else:
+                    document_id = existing.id
+
+                    if existing.sha256 != document_data["sha256"]:
+                        await connection.execute(
+                            DOCUMENTS_TABLE.update()
+                            .where(DOCUMENTS_TABLE.c.id == document_id)
+                            .values(**document_data)
+                        )
+                        updated += 1
+                    else:
+                        unchanged += 1
+
+                page_data = build_page(record, document_id)
+
+                page_insert = insert(PAGES_TABLE).values(**page_data)
+
+                await connection.execute(
+                    page_insert.on_conflict_do_update(
+                        constraint="uq_pages_document_id",
+                        set_={"text": page_insert.excluded.text},
+                    )
+                )
 
         print("\nDatabase loading completed!")
-        print(f"Records found: {len(records)}")
-        print(f"Documents inserted: {documents_inserted}")
-        print(f"Documents skipped: {len(records) - documents_inserted}")
-        print(f"Pages inserted: {pages_inserted}")
-        print(f"Pages skipped: {len(records) - pages_inserted}")
+        print(f"Records: {len(records)}")
+        print(f"Inserted: {inserted}")
+        print(f"Updated: {updated}")
+        print(f"Unchanged: {unchanged}")
 
     finally:
-        engine.dispose()
+        await engine.dispose()
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
