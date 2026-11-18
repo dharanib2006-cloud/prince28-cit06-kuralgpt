@@ -16,7 +16,6 @@ PORUTPAAL = "\u0baa\u0bca\u0bb0\u0bc1\u0b9f\u0bcd\u0baa\u0bbe\u0bb2\u0bcd"
 
 def test_health_is_ok(client):
     response = client.get("/health")
-
     assert response.status_code == 200
     assert response.json()["status"] == "ok"
 
@@ -147,7 +146,6 @@ def test_bad_limit_is_422_problem(client):
 
 def test_request_id_is_echoed(client):
     response = client.get("/health", headers={"X-Request-ID": "abc123"})
-
     assert response.headers["X-Request-ID"] == "abc123"
 
 
@@ -161,7 +159,7 @@ def test_app_refuses_to_start_without_app_env(monkeypatch):
 def test_filter_by_paal(client):
     response = client.get(
         "/v1/documents",
-        params={"paal": "அறத்துப்பால்"},
+        params={"paal": ARATHUPPAAL},
     )
     body = response.json()
 
@@ -184,7 +182,7 @@ def test_filter_by_paal_and_adhikaram(client):
     response = client.get(
         "/v1/documents",
         params={
-            "paal": "அறத்துப்பால்",
+            "paal": ARATHUPPAAL,
             "adhikaram": "Example chapter",
         },
     )
@@ -192,3 +190,40 @@ def test_filter_by_paal_and_adhikaram(client):
 
     assert response.status_code == 200
     assert body["total"] == 2
+
+
+def test_sort_documents_by_title(client):
+    response = client.get(
+        "/v1/documents",
+        params={"sort": "title"},
+    )
+
+    assert response.status_code == 200
+    assert [item["id"] for item in response.json()["items"]] == [
+        "001",
+        "002",
+        "003",
+    ]
+
+
+def test_sort_documents_by_published_on_descending(client):
+    response = client.get(
+        "/v1/documents",
+        params={"sort": "-published_on"},
+    )
+
+    assert response.status_code == 200
+    assert [item["id"] for item in response.json()["items"]] == [
+        "003",
+        "002",
+        "001",
+    ]
+
+
+def test_reject_unsupported_sort_field(client):
+    response = client.get(
+        "/v1/documents",
+        params={"sort": "unknown_column"},
+    )
+
+    assert response.status_code == 422

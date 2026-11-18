@@ -48,3 +48,46 @@ def test_metadata_gin_index_exists():
         """
     )
     assert result.scalar_one() == 1
+
+
+def test_typed_kural_numbers_are_backfilled():
+    result = run_db_check(
+        """
+        SELECT COUNT(*), COUNT(kural_no), MIN(kural_no), MAX(kural_no)
+        FROM documents
+        WHERE doc_type = 'kural'
+        """
+    )
+
+    total, populated, minimum, maximum = result.one()
+
+    assert total == 20
+    assert populated == 20
+    assert minimum == 1
+    assert maximum == 20
+
+
+def test_typed_kural_number_filter_works():
+    result = run_db_check(
+        """
+        SELECT kural_no
+        FROM documents
+        WHERE doc_type = 'kural' AND kural_no = :kural_no
+        """,
+        {"kural_no": 2},
+    )
+
+    assert result.scalar_one() == 2
+
+
+def test_kural_number_btree_index_exists():
+    result = run_db_check(
+        """
+        SELECT COUNT(*)
+        FROM pg_indexes
+        WHERE tablename = 'documents'
+          AND indexname = 'ix_documents_kural_no'
+        """
+    )
+
+    assert result.scalar_one() == 1

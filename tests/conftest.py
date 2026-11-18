@@ -1,5 +1,3 @@
-"""Shared fixtures for KuralGPT API tests."""
-
 import json
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
@@ -24,6 +22,7 @@ SAMPLE = [
         "theme": None,
         "title": "Alpha guideline",
         "year": 2023,
+        "published_on": "2023-01-01",
     },
     {
         "id": "002",
@@ -37,6 +36,7 @@ SAMPLE = [
         "theme": None,
         "title": "Beta circular",
         "year": 2024,
+        "published_on": "2024-01-01",
     },
     {
         "id": "003",
@@ -50,6 +50,7 @@ SAMPLE = [
         "theme": None,
         "title": "Gamma notice",
         "year": 2025,
+        "published_on": "2025-01-01",
     },
 ]
 
@@ -75,6 +76,7 @@ def client(data_file, monkeypatch):
         adhikaram=None,
         language=None,
         commentator=None,
+        sort="id",
     ):
         records = SAMPLE.copy()
 
@@ -87,6 +89,14 @@ def client(data_file, monkeypatch):
         if q:
             term = q.lower()
             records = [r for r in records if term in json.dumps(r, ensure_ascii=False).lower()]
+
+        if sort == "title":
+            records.sort(key=lambda r: r["title"].lower())
+        elif sort == "-published_on":
+            records.sort(
+                key=lambda r: r["published_on"],
+                reverse=True,
+            )
 
         return records[offset : offset + limit], len(records)
 

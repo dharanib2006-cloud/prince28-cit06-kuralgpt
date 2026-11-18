@@ -1,3 +1,5 @@
+from typing import Literal
+
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -19,9 +21,9 @@ async def list_documents_endpoint(
     adhikaram: str | None = Query(default=None),
     language: str | None = Query(default=None),
     commentator: str | None = Query(default=None),
+    sort: Literal["id", "title", "-published_on"] = Query(default="id"),
     session: AsyncSession = Depends(get_db_session),
 ) -> dict:
-
     records, total = await list_documents(
         session,
         limit,
@@ -32,6 +34,7 @@ async def list_documents_endpoint(
         adhikaram,
         language,
         commentator,
+        sort,
     )
 
     return {
@@ -47,7 +50,6 @@ async def get_document_endpoint(
     document_id: str,
     session: AsyncSession = Depends(get_db_session),
 ) -> dict:
-
     record = await get_document(session, document_id)
 
     if record is None:

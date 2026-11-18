@@ -22,13 +22,13 @@ async def list_documents(
     adhikaram: str | None = None,
     language: str | None = None,
     commentator: str | None = None,
+    sort: str = "id",
 ) -> tuple[list[dict[str, Any]], int]:
-
     filters = []
     metadata = Document.metadata_
 
     if kural_no is not None:
-        filters.append(cast(metadata["kural_no"].as_string(), String) == str(kural_no))
+        filters.append(Document.kural_no == kural_no)
 
     if paal:
         filters.append(metadata["paal"].as_string() == paal)
@@ -63,7 +63,14 @@ async def list_documents(
 
     total = await session.scalar(count_stmt) or 0
 
-    stmt = select(Document).where(*filters).order_by(Document.id).offset(offset).limit(limit)
+    sort_options = {
+        "id": Document.id.asc(),
+        "title": Document.title.asc(),
+        "-published_on": Document.published_on.desc().nulls_last(),
+    }
+    ordering = sort_options.get(sort, Document.id.asc())
+
+    stmt = select(Document).where(*filters).order_by(ordering).offset(offset).limit(limit)
 
     result = await session.scalars(stmt)
 
@@ -74,9 +81,7 @@ async def get_document(
     session: AsyncSession,
     document_id: str,
 ) -> dict[str, Any] | None:
-
     stmt = select(Document).where(Document.external_id == document_id)
-
     document = await session.scalar(stmt)
 
     return document_to_record(document) if document is not None else None

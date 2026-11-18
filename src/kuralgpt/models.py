@@ -47,7 +47,9 @@ class Document(Base):
     doc_type: Mapped[str] = mapped_column(
         String(50), nullable=False, server_default=text("'record'")
     )
+    kural_no: Mapped[int | None] = mapped_column(Integer, nullable=True)
     published_on: Mapped[date | None] = mapped_column(Date)
+
     sha256: Mapped[str] = mapped_column(String(64), nullable=False)
 
     metadata_: Mapped[dict] = mapped_column(
@@ -78,6 +80,7 @@ class Document(Base):
     __table_args__ = (
         Index("ix_documents_sha256", "sha256"),
         Index("ix_documents_doc_type", "doc_type"),
+        Index("ix_documents_kural_no", "kural_no"),
     )
 
 
