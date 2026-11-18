@@ -1,10 +1,12 @@
 """Shared fixtures for KuralGPT API tests."""
 
 import json
+from unittest.mock import MagicMock
 
 import pytest
 from fastapi.testclient import TestClient
 
+from kuralgpt.api.deps import get_db_session
 from kuralgpt.api.main import create_app
 from kuralgpt.config import Settings
 
@@ -12,9 +14,9 @@ SAMPLE = [
     {
         "id": "001",
         "kural_no": 1,
-        "paal": "அறத்துப்பால்",
-        "adhikaram": "கடவுள் வாழ்த்து",
-        "couplet_tamil": "அகர முதல எழுத்தெல்லாம் ஆதி பகவன் முதற்றே உலகு",
+        "paal": "\u0b85\u0bb1\u0ba4\u0bcd\u0ba4\u0bc1\u0baa\u0bcd\u0baa\u0bbe\u0bb2\u0bcd",
+        "adhikaram": "Example chapter",
+        "couplet_tamil": "Sample couplet",
         "meaning_tamil": None,
         "commentary_tamil": "Test commentary",
         "meaning_english": "Test English meaning",
@@ -25,9 +27,9 @@ SAMPLE = [
     {
         "id": "002",
         "kural_no": 2,
-        "paal": "அறத்துப்பால்",
-        "adhikaram": "கடவுள் வாழ்த்து",
-        "couplet_tamil": "கற்றதனால் ஆய பயனென்கொல் வாலறிவன்",
+        "paal": "\u0b85\u0bb1\u0ba4\u0bcd\u0ba4\u0bc1\u0baa\u0bcd\u0baa\u0bbe\u0bb2\u0bcd",
+        "adhikaram": "Example chapter",
+        "couplet_tamil": "Sample couplet",
         "meaning_tamil": None,
         "commentary_tamil": "Test commentary",
         "meaning_english": "Test English meaning",
@@ -38,9 +40,9 @@ SAMPLE = [
     {
         "id": "003",
         "kural_no": 3,
-        "paal": "பொருட்பால்",
+        "paal": "\u0baa\u0bca\u0bb0\u0bc1\u0b9f\u0bcd\u0baa\u0bbe\u0bb2\u0bcd",
         "adhikaram": "Example chapter",
-        "couplet_tamil": "Test couplet",
+        "couplet_tamil": "Sample couplet",
         "meaning_tamil": None,
         "commentary_tamil": "Test commentary",
         "meaning_english": "Test English meaning",
@@ -60,9 +62,62 @@ def data_file(tmp_path):
 
 
 @pytest.fixture
-def client(data_file):
-    """Create a test client with its own temporary records."""
-    settings = Settings(app_env="ci", data_file=data_file)
+def client(data_file, monkeypatch):
+    """Create a test client with isolated sample data and a mocked database."""
 
-    with TestClient(create_app(settings)) as test_client:
+    def fake_list_documents(
+        session,
+        limit=20,
+        offset=0,
+        q=None,
+        kural_no=None,
+        paal=None,
+        adhikaram=None,
+        language=None,
+        commentator=None,
+    ):
+        records = SAMPLE.copy()
+
+        if kural_no is not None:
+            records = [r for r in records if r["kural_no"] == kural_no]
+        if paal:
+            records = [r for r in records if r["paal"] == paal]
+        if adhikaram:
+            records = [r for r in records if r["adhikaram"] == adhikaram]
+        if q:
+            term = q.lower()
+            records = [r for r in records if term in json.dumps(r, ensure_ascii=False).lower()]
+
+        total = len(records)
+        return records[offset : offset + limit], total
+
+    def fake_get_document(session, document_id):
+        return next(
+            (record for record in SAMPLE if record["id"] == document_id),
+            None,
+        )
+
+    monkeypatch.setattr(
+        "kuralgpt.api.routes.documents.list_documents",
+        fake_list_documents,
+    )
+    monkeypatch.setattr(
+        "kuralgpt.api.routes.documents.get_document",
+        fake_get_document,
+    )
+
+    mock_session = MagicMock()
+    mock_session.scalar.return_value = len(SAMPLE)
+    mock_session.scalars.return_value.all.return_value = [record["paal"] for record in SAMPLE]
+
+    def override_get_db_session():
+        yield mock_session
+
+    settings = Settings(app_env="ci", data_file=data_file)
+    app = create_app(settings)
+    app.dependency_overrides[get_db_session] = override_get_db_session
+
+    with TestClient(app) as test_client:
         yield test_client
+
+    app.dependency_overrides.clear()

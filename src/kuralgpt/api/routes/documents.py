@@ -1,50 +1,41 @@
 """Document listing, searching, and retrieval endpoints."""
 
 from fastapi import APIRouter, Depends, Query
+from sqlalchemy.orm import Session
 
-from kuralgpt.api.deps import get_document_store
+from kuralgpt.api.deps import get_db_session
 from kuralgpt.api.errors import ApiError
+from kuralgpt.repository import get_document, list_documents
 from kuralgpt.schemas import DocumentListResponse, KuralRecord
-from kuralgpt.store import DocumentStore
 
 router = APIRouter(prefix="/v1/documents", tags=["documents"])
 
 
 @router.get("", response_model=DocumentListResponse)
-def list_documents(
+def list_documents_endpoint(
     limit: int = Query(default=20, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
     q: str | None = Query(default=None),
     kural_no: int | None = Query(default=None, ge=1, le=1330),
-    store: DocumentStore = Depends(get_document_store),
+    paal: str | None = Query(default=None),
+    adhikaram: str | None = Query(default=None),
+    language: str | None = Query(default=None),
+    commentator: str | None = Query(default=None),
+    session: Session = Depends(get_db_session),
 ) -> dict:
-    """List documents with optional search, Kural number filter, and pagination."""
+    """List PostgreSQL documents with filters and pagination."""
 
-    records = store.records
-
-    if kural_no is not None:
-        records = [record for record in records if record.get("kural_no") == kural_no]
-
-    if q:
-        query = q.casefold().strip()
-        searchable_fields = (
-            "title",
-            "couplet_tamil",
-            "meaning_tamil",
-            "meaning_english",
-            "adhikaram",
-            "paal",
-            "theme",
-        )
-
-        records = [
-            record
-            for record in records
-            if any(query in str(record.get(field, "")).casefold() for field in searchable_fields)
-        ]
-
-    total = len(records)
-    records = records[offset : offset + limit]
+    records, total = list_documents(
+        session=session,
+        limit=limit,
+        offset=offset,
+        q=q,
+        kural_no=kural_no,
+        paal=paal,
+        adhikaram=adhikaram,
+        language=language,
+        commentator=commentator,
+    )
 
     return {
         "total": total,
@@ -55,12 +46,13 @@ def list_documents(
 
 
 @router.get("/{document_id}", response_model=KuralRecord)
-def get_document(
+def get_document_endpoint(
     document_id: str,
-    store: DocumentStore = Depends(get_document_store),
+    session: Session = Depends(get_db_session),
 ) -> dict:
-    """Retrieve one document using its ID."""
-    record = store.get_record(document_id)
+    """Retrieve one PostgreSQL document using its ID."""
+
+    record = get_document(session, document_id)
 
     if record is None:
         raise ApiError(
