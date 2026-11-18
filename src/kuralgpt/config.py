@@ -23,6 +23,10 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     data_file: Path = Path("data/sample_records.json")
 
+    # PostgreSQL connection URL.
+    # Keep this optional until the database is configured.
+    database_url: str | None = Field(default=None, repr=False)
+
 
 @lru_cache
 def get_settings() -> Settings:
