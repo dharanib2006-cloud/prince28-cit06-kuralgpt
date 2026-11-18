@@ -1,57 +1,79 @@
 """Tests for KuralGPT API endpoints and configuration."""
 
-import json
+from unittest.mock import AsyncMock
 
 import pytest
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
+from kuralgpt.api.deps import get_db_session
 from kuralgpt.api.main import create_app
 from kuralgpt.config import Settings
+
+ARATHUPPAAL = "\u0b85\u0bb1\u0ba4\u0bcd\u0ba4\u0bc1\u0baa\u0bcd\u0baa\u0bbe\u0bb2\u0bcd"
+PORUTPAAL = "\u0baa\u0bca\u0bb0\u0bc1\u0b9f\u0bcd\u0baa\u0bbe\u0bb2\u0bcd"
 
 
 def test_health_is_ok(client):
     response = client.get("/health")
-
     assert response.status_code == 200
     assert response.json()["status"] == "ok"
 
 
 def test_ready_when_at_least_20_records_are_loaded(tmp_path):
-    records = [{"id": str(number)} for number in range(1, 21)]
-    data_file = tmp_path / "records.json"
-    data_file.write_text(json.dumps(records), encoding="utf-8")
+    settings = Settings(app_env="ci", data_file=tmp_path / "unused.json")
+    mock_session = AsyncMock()
+    mock_session.scalar.return_value = 20
 
-    settings = Settings(app_env="ci", data_file=data_file)
+    async def override_session():
+        yield mock_session
 
-    with TestClient(create_app(settings)) as test_client:
+    app = create_app(settings)
+    app.dependency_overrides[get_db_session] = override_session
+
+    with TestClient(app) as test_client:
         response = test_client.get("/ready")
 
     assert response.status_code == 200
     assert response.json()["status"] == "ready"
     assert response.json()["records_count"] == 20
-    assert response.json()["checks"]["records_loaded"] is True
+    assert response.json()["checks"]["database"] is True
 
 
 def test_ready_is_503_when_fewer_than_20_records_are_loaded(tmp_path):
-    records = [{"id": str(number)} for number in range(1, 20)]
-    data_file = tmp_path / "records.json"
-    data_file.write_text(json.dumps(records), encoding="utf-8")
+    settings = Settings(app_env="ci", data_file=tmp_path / "unused.json")
+    mock_session = AsyncMock()
+    mock_session.scalar.return_value = 19
 
-    settings = Settings(app_env="ci", data_file=data_file)
+    async def override_session():
+        yield mock_session
 
-    with TestClient(create_app(settings)) as test_client:
+    app = create_app(settings)
+    app.dependency_overrides[get_db_session] = override_session
+
+    with TestClient(app) as test_client:
         response = test_client.get("/ready")
 
     assert response.status_code == 503
 
 
-def test_ready_is_503_when_data_file_is_missing(tmp_path):
-    settings = Settings(app_env="ci", data_file=tmp_path / "missing.json")
+def test_ready_is_503_when_database_is_unavailable(tmp_path):
+    settings = Settings(app_env="ci", data_file=tmp_path / "unused.json")
+    mock_session = AsyncMock()
+    mock_session.execute.side_effect = Exception("Database unavailable")
 
-    with TestClient(create_app(settings)) as test_client:
+    async def override_session():
+        yield mock_session
+
+    app = create_app(settings)
+    app.dependency_overrides[get_db_session] = override_session
+
+    with TestClient(app) as test_client:
         assert test_client.get("/health").status_code == 200
-        assert test_client.get("/ready").status_code == 503
+        response = test_client.get("/ready")
+
+    assert response.status_code == 503
+    assert response.json()["detail"]["checks"]["database"] is False
 
 
 def test_list_documents_paginates(client):
@@ -66,6 +88,7 @@ def test_list_documents_paginates(client):
 def test_search_filters_records(client):
     response = client.get("/v1/documents", params={"q": "beta"})
 
+    assert response.status_code == 200
     assert [record["id"] for record in response.json()["items"]] == ["002"]
 
 
@@ -87,8 +110,8 @@ def test_statistics_returns_total_and_counts_by_paal(client):
     assert response.status_code == 200
     assert body["total_records"] == 3
     assert body["counts_by_paal"] == {
-        "அறத்துப்பால்": 2,
-        "பொருட்பால்": 1,
+        ARATHUPPAAL: 2,
+        PORUTPAAL: 1,
     }
 
 
@@ -98,7 +121,7 @@ def test_get_document_found(client):
     assert response.status_code == 200
     assert response.json()["id"] == "001"
     assert response.json()["kural_no"] == 1
-    assert response.json()["paal"] == "அறத்துப்பால்"
+    assert response.json()["paal"] == ARATHUPPAAL
 
 
 def test_missing_document_is_problem_details(client):
@@ -123,7 +146,6 @@ def test_bad_limit_is_422_problem(client):
 
 def test_request_id_is_echoed(client):
     response = client.get("/health", headers={"X-Request-ID": "abc123"})
-
     assert response.headers["X-Request-ID"] == "abc123"
 
 
@@ -132,3 +154,76 @@ def test_app_refuses_to_start_without_app_env(monkeypatch):
 
     with pytest.raises(ValidationError):
         Settings(_env_file=None)
+
+
+def test_filter_by_paal(client):
+    response = client.get(
+        "/v1/documents",
+        params={"paal": ARATHUPPAAL},
+    )
+    body = response.json()
+
+    assert response.status_code == 200
+    assert body["total"] == 2
+
+
+def test_filter_by_adhikaram(client):
+    response = client.get(
+        "/v1/documents",
+        params={"adhikaram": "Example chapter"},
+    )
+    body = response.json()
+
+    assert response.status_code == 200
+    assert body["total"] == 3
+
+
+def test_filter_by_paal_and_adhikaram(client):
+    response = client.get(
+        "/v1/documents",
+        params={
+            "paal": ARATHUPPAAL,
+            "adhikaram": "Example chapter",
+        },
+    )
+    body = response.json()
+
+    assert response.status_code == 200
+    assert body["total"] == 2
+
+
+def test_sort_documents_by_title(client):
+    response = client.get(
+        "/v1/documents",
+        params={"sort": "title"},
+    )
+
+    assert response.status_code == 200
+    assert [item["id"] for item in response.json()["items"]] == [
+        "001",
+        "002",
+        "003",
+    ]
+
+
+def test_sort_documents_by_published_on_descending(client):
+    response = client.get(
+        "/v1/documents",
+        params={"sort": "-published_on"},
+    )
+
+    assert response.status_code == 200
+    assert [item["id"] for item in response.json()["items"]] == [
+        "003",
+        "002",
+        "001",
+    ]
+
+
+def test_reject_unsupported_sort_field(client):
+    response = client.get(
+        "/v1/documents",
+        params={"sort": "unknown_column"},
+    )
+
+    assert response.status_code == 422

@@ -1,16 +1,16 @@
-"""Dependencies shared by KuralGPT API routes."""
+from collections.abc import AsyncGenerator
 
-from fastapi import Request
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from kuralgpt.config import Settings, get_settings
-from kuralgpt.store import DocumentStore
+from kuralgpt.db.session import get_session_factory
 
 
 def get_app_settings() -> Settings:
-    """Provide application settings to API routes."""
     return get_settings()
 
 
-def get_document_store(request: Request) -> DocumentStore:
-    """Provide the document store created during application startup."""
-    return request.app.state.document_store
+async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        yield session

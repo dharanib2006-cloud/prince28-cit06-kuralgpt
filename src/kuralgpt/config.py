@@ -17,11 +17,12 @@ class Settings(BaseSettings):
     )
 
     app_name: str = "kuralgpt"
-    app_env: str = Field(
-        pattern="^(local|ci|production)$",
-    )
+    app_env: str = Field(pattern="^(local|ci|production)$")
     log_level: str = "INFO"
     data_file: Path = Path("data/sample_records.json")
+
+    # PostgreSQL connection URL. Keep the password out of logs.
+    database_url: str | None = Field(default=None, repr=False)
 
 
 @lru_cache

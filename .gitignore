@@ -17,3 +17,5 @@ data/raw/
 .vscode/
 .idea/
 .DS_Store
+# Local PostgreSQL backup
+data/postgres_backup.json

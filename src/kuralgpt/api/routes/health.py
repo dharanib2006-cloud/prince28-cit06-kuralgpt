@@ -1,41 +1,50 @@
-"""Health and readiness endpoints."""
-
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import func, select, text
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from kuralgpt.api.deps import get_document_store
-from kuralgpt.store import DocumentStore
+from kuralgpt.api.deps import get_db_session
+from kuralgpt.models import Document
 
 router = APIRouter(tags=["health"])
-
 MINIMUM_RECORDS = 20
 
 
 @router.get("/health")
-def health() -> dict[str, str]:
-    """Return basic application health."""
+async def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
 @router.get("/ready")
-def ready(
-    store: DocumentStore = Depends(get_document_store),
+async def ready(
+    session: AsyncSession = Depends(get_db_session),
 ) -> dict:
-    """Check whether enough application data is available."""
-    records_count = len(store.records)
 
-    if not store.loaded or records_count < MINIMUM_RECORDS:
+    try:
+        await session.execute(text("SELECT 1"))
+
+        count = await session.scalar(select(func.count()).select_from(Document)) or 0
+
+    except Exception as exc:
         raise HTTPException(
             status_code=503,
-            detail=(
-                f"At least {MINIMUM_RECORDS} records are required. "
-                f"Currently available: {records_count}."
-            ),
+            detail={
+                "status": "not_ready",
+                "checks": {"database": False},
+            },
+        ) from exc
+
+    if count < MINIMUM_RECORDS:
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "status": "not_ready",
+                "records_count": count,
+                "checks": {"database": True},
+            },
         )
 
     return {
         "status": "ready",
-        "records_count": records_count,
-        "checks": {
-            "records_loaded": True,
-        },
+        "records_count": count,
+        "checks": {"database": True},
     }
