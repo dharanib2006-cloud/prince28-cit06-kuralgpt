@@ -276,3 +276,43 @@ The Docker Compose stack starts successfully. Database migrations and sample dat
 - Combined tests: 27 passed.
 - Ruff lint and formatting checks passed.
 - Temporary integration-test database cleanup was verified.
+
+## 9. Final Docker verification evidence
+
+### Docker image
+- Image: `kuralgpt-api:day4`
+- Image ID: `sha256:04458b96e1ee16733462383c0f0a5a0c5180154b6ad3dc3f6caa904bebcaa94b`
+- Image size: 74,609,387 bytes (approximately 71.1 MiB).
+- Runtime user: `app` (non-root).
+
+### Final Docker Compose verification
+- `db`: healthy.
+- `redis`: healthy.
+- `migrate`: exited with code 0.
+- `api`: healthy.
+- API host port: 8000.
+- `/health`: `ok`.
+- `/ready`: `ready`.
+
+### Migration and sample data
+- Alembic migrations completed successfully.
+- Database loading completed successfully.
+- Records: 20.
+- Inserted: 20.
+- Updated: 0.
+- Unchanged: 0.
+- Deleted: 0.
+
+### Build cache
+- The final rebuild reused cached Docker layers.
+- Dependency installation and image export completed successfully.
+
+### Fresh-clone verification
+- Cloned the committed repository into a separate directory.
+- Built the API and migration images successfully from the clone.
+- PostgreSQL and Redis became healthy.
+- Migrations and sample data loading completed successfully (exit code 0).
+- API became healthy.
+- `/health`: `ok`.
+- `/ready`: `ready`.
+- Used separate host ports 5434 (PostgreSQL), 6380 (Redis), and 8001 (API) to avoid conflicts with the original stack.
