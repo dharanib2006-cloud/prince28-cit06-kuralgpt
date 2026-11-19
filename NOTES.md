@@ -157,3 +157,81 @@ The additional B-tree index on `kural_no` supports efficient filtering using the
 - Checked-out connections 0: no database connections were currently in use.
 
 Note: The 50 requests targeted the `/health` endpoint, which did not acquire database connections. Therefore, this test verifies pool-status logging, not database connection reuse under database-backed traffic.
+
+
+
+---
+
+# Day 4 – Docker Compose Verification Notes
+
+## 1. Stack startup
+
+Started the complete stack using:
+
+```powershell
+docker compose up -d
+```
+
+Services verified:
+- PostgreSQL (`db`) – healthy
+- Redis (`redis`) – healthy
+- Migration and data loader (`migrate`) – exited successfully
+- API (`api`) – healthy
+
+Database loader result:
+- Records: 20
+- Inserted: 20
+- Updated: 0
+- Unchanged: 0
+- Deleted: 0
+
+## 2. API health and readiness
+
+With all services running:
+- `/health` returned `status: ok`
+- `/ready` returned `ready`
+
+## 3. Database outage test
+
+Stopped PostgreSQL:
+
+```powershell
+docker compose stop db
+```
+
+Results:
+- `/health` continued returning `status: ok`
+- `/ready` returned HTTP 503
+- Database readiness check returned `false`
+
+## 4. Database recovery test
+
+Restarted PostgreSQL:
+
+```powershell
+docker compose start db
+```
+
+Waited until PostgreSQL became healthy.
+
+Results:
+- `/health` returned `status: ok`
+- `/ready` returned `ready`
+
+## 5. Port mapping
+
+The API is accessible on host port 8000:
+
+```text
+0.0.0.0:8000 -> 8000/tcp
+```
+
+Verified using:
+
+```powershell
+docker compose port api 8000
+```
+
+## 6. Summary
+
+The Docker Compose stack starts successfully. Database migrations and sample data loading complete successfully. The API remains alive when PostgreSQL is stopped, readiness correctly returns HTTP 503 during the outage, and readiness recovers after PostgreSQL restarts.

@@ -1,4 +1,4 @@
-﻿
+
 # Stage 1: Build
 FROM python:3.12-slim AS builder
 
@@ -15,6 +15,8 @@ RUN uv sync --frozen --no-dev --no-install-project
 
 COPY src ./src
 COPY migrations ./migrations
+COPY scripts ./scripts
+COPY data ./data
 COPY alembic.ini ./
 
 RUN uv sync --frozen --no-dev
@@ -35,6 +37,8 @@ RUN groupadd --gid 10001 app \
 COPY --from=builder --chown=app:app /app/.venv /app/.venv
 COPY --from=builder --chown=app:app /app/src /app/src
 COPY --from=builder --chown=app:app /app/migrations /app/migrations
+COPY --from=builder --chown=app:app /app/scripts /app/scripts
+COPY --from=builder --chown=app:app /app/data /app/data
 COPY --from=builder --chown=app:app /app/alembic.ini /app/alembic.ini
 
 USER app
