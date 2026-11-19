@@ -316,3 +316,35 @@ The Docker Compose stack starts successfully. Database migrations and sample dat
 - `/health`: `ok`.
 - `/ready`: `ready`.
 - Used separate host ports 5434 (PostgreSQL), 6380 (Redis), and 8001 (API) to avoid conflicts with the original stack.
+
+### Stretch task: Heaviest Docker layer
+- Inspected the image using `docker history kuralgpt-api:day4`.
+- Largest application layer: copying `/app/.venv` into the runtime image (109 MB).
+- Reason: the virtual environment contains the installed Python dependencies and their supporting files.
+
+### Stretch task: Heaviest Docker layer
+- Inspected the image using `docker history kuralgpt-api:day4`.
+- Largest application layer: copying `/app/.venv` into the runtime image (109 MB).
+- Reason: the virtual environment contains installed Python dependencies and supporting files.
+
+### Stretch task: HTML coverage
+- Generated the HTML coverage report using `uv run pytest --cov --cov-report=html`.
+- Added tests for default application settings and database pool logging after 50 requests.
+- Focused API tests: 21 passed.
+- Full test suite after additions: 29 passed.
+- HTML report generated in `htmlcov`.
+
+### Stretch task: Run Docker image against Neon
+- Started the production-mode Docker image using the local `.env` file.
+- `/ready` returned `ready`.
+- Database connectivity check returned `True`.
+- The API reported 20 records.
+- No migrations or seed operations were run during this check.
+
+### Stretch task: Restart API when database restarts
+- Added `restart: true` under the API service's `depends_on.db` configuration.
+- Validated the Compose configuration successfully.
+- Ran `docker compose restart db`.
+- Compose restarted the API after the database restart.
+- API `/health` returned `ok`; `/ready` returned `ready`.
+- Database connectivity remained healthy and 20 records were reported.

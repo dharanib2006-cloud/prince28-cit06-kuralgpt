@@ -1,11 +1,12 @@
 """Tests for KuralGPT API endpoints and configuration."""
 
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
+import kuralgpt.api.main as main_module
 from kuralgpt.api.deps import get_db_session
 from kuralgpt.api.main import create_app
 from kuralgpt.config import Settings
@@ -227,3 +228,36 @@ def test_reject_unsupported_sort_field(client):
     )
 
     assert response.status_code == 422
+
+
+def test_create_app_uses_default_settings(monkeypatch):
+    settings = Settings(app_env="ci")
+    monkeypatch.setattr(main_module, "get_settings", lambda: settings)
+
+    app = create_app()
+
+    assert app.title == "KuralGPT API"
+
+
+def test_pool_status_is_logged_after_50_requests(monkeypatch):
+    settings = Settings(app_env="ci")
+    mock_engine = Mock()
+    mock_engine.pool.status.return_value = "Pool size: 5"
+    mock_engine.dispose = AsyncMock()
+    mock_log = Mock()
+
+    monkeypatch.setattr(main_module, "get_engine", lambda: mock_engine)
+    monkeypatch.setattr(main_module.logger, "info", mock_log)
+
+    app = create_app(settings)
+
+    with TestClient(app) as test_client:
+        for _ in range(50):
+            response = test_client.get("/health")
+            assert response.status_code == 200
+
+    mock_log.assert_any_call(
+        "Database connection pool after 50 requests: %s",
+        "Pool size: 5",
+    )
+    mock_engine.dispose.assert_awaited_once()
