@@ -157,3 +157,194 @@ The additional B-tree index on `kural_no` supports efficient filtering using the
 - Checked-out connections 0: no database connections were currently in use.
 
 Note: The 50 requests targeted the `/health` endpoint, which did not acquire database connections. Therefore, this test verifies pool-status logging, not database connection reuse under database-backed traffic.
+
+
+
+---
+
+# Day 4 – Docker Compose Verification Notes
+
+## 1. Stack startup
+
+Started the complete stack using:
+
+```powershell
+docker compose up -d
+```
+
+Services verified:
+- PostgreSQL (`db`) – healthy
+- Redis (`redis`) – healthy
+- Migration and data loader (`migrate`) – exited successfully
+- API (`api`) – healthy
+
+Database loader result:
+- Records: 20
+- Inserted: 20
+- Updated: 0
+- Unchanged: 0
+- Deleted: 0
+
+## 2. API health and readiness
+
+With all services running:
+- `/health` returned `status: ok`
+- `/ready` returned `ready`
+
+## 3. Database outage test
+
+Stopped PostgreSQL:
+
+```powershell
+docker compose stop db
+```
+
+Results:
+- `/health` continued returning `status: ok`
+- `/ready` returned HTTP 503
+- Database readiness check returned `false`
+
+## 4. Database recovery test
+
+Restarted PostgreSQL:
+
+```powershell
+docker compose start db
+```
+
+Waited until PostgreSQL became healthy.
+
+Results:
+- `/health` returned `status: ok`
+- `/ready` returned `ready`
+
+## 5. Port mapping
+
+The API is accessible on host port 8000:
+
+```text
+0.0.0.0:8000 -> 8000/tcp
+```
+
+Verified using:
+
+```powershell
+docker compose port api 8000
+```
+
+## 6. Summary
+
+The Docker Compose stack starts successfully. Database migrations and sample data loading complete successfully. The API remains alive when PostgreSQL is stopped, readiness correctly returns HTTP 503 during the outage, and readiness recovers after PostgreSQL restarts.
+
+## 7. Testing and coverage
+
+### Unit tests
+- Command: `uv run poe test`
+- Result: 19 unit tests passed.
+- Unit-only coverage: 65%.
+
+### Integration tests
+- Command: `uv run poe test-integration`
+- Result: 8 integration tests passed.
+- A uniquely named temporary PostgreSQL database was created and migrated.
+- Automatic cleanup was verified; no temporary test databases remained.
+
+### Combined tests and coverage
+- Command: `uv run poe cov`
+- Result: 27 tests passed (19 unit and 8 integration).
+- Combined coverage: 74%.
+
+### Lint and formatting
+- Command: `uv run poe lint`
+- Ruff checks passed.
+- 49 files passed the formatting check.
+
+### Coverage observations
+- `database.py` and `store.py` had no executed lines in the coverage report.
+- Combined coverage is recorded as measured: 74%.
+
+## 8. Day 4 verification summary
+- Multi-stage Docker image built successfully.
+- Runtime uses the non-root `app` user.
+- Docker image size: approximately 71.1 MiB.
+- Docker Compose services started and passed health checks.
+- Migrations and sample data loading completed successfully.
+- `/health` remained available during the database outage.
+- `/ready` returned HTTP 503 during the outage and recovered after PostgreSQL restarted.
+- Unit tests: 19 passed.
+- Integration tests: 8 passed.
+- Combined tests: 27 passed.
+- Ruff lint and formatting checks passed.
+- Temporary integration-test database cleanup was verified.
+
+## 9. Final Docker verification evidence
+
+### Docker image
+- Image: `kuralgpt-api:day4`
+- Image ID: `sha256:04458b96e1ee16733462383c0f0a5a0c5180154b6ad3dc3f6caa904bebcaa94b`
+- Image size: 74,609,387 bytes (approximately 71.1 MiB).
+- Runtime user: `app` (non-root).
+
+### Final Docker Compose verification
+- `db`: healthy.
+- `redis`: healthy.
+- `migrate`: exited with code 0.
+- `api`: healthy.
+- API host port: 8000.
+- `/health`: `ok`.
+- `/ready`: `ready`.
+
+### Migration and sample data
+- Alembic migrations completed successfully.
+- Database loading completed successfully.
+- Records: 20.
+- Inserted: 20.
+- Updated: 0.
+- Unchanged: 0.
+- Deleted: 0.
+
+### Build cache
+- The final rebuild reused cached Docker layers.
+- Dependency installation and image export completed successfully.
+
+### Fresh-clone verification
+- Cloned the committed repository into a separate directory.
+- Built the API and migration images successfully from the clone.
+- PostgreSQL and Redis became healthy.
+- Migrations and sample data loading completed successfully (exit code 0).
+- API became healthy.
+- `/health`: `ok`.
+- `/ready`: `ready`.
+- Used separate host ports 5434 (PostgreSQL), 6380 (Redis), and 8001 (API) to avoid conflicts with the original stack.
+
+### Stretch task: Heaviest Docker layer
+- Inspected the image using `docker history kuralgpt-api:day4`.
+- Largest application layer: copying `/app/.venv` into the runtime image (109 MB).
+- Reason: the virtual environment contains the installed Python dependencies and their supporting files.
+
+### Stretch task: Heaviest Docker layer
+- Inspected the image using `docker history kuralgpt-api:day4`.
+- Largest application layer: copying `/app/.venv` into the runtime image (109 MB).
+- Reason: the virtual environment contains installed Python dependencies and supporting files.
+
+### Stretch task: HTML coverage
+- Generated the HTML coverage report using `uv run pytest --cov --cov-report=html`.
+- Added tests for default application settings and database pool logging after 50 requests.
+- Focused API tests: 21 passed.
+- Full test suite after additions: 29 passed.
+- HTML report generated in `htmlcov`.
+
+### Stretch task: Run Docker image against Neon
+- Started the production-mode Docker image using the local `.env` file.
+- `/ready` returned `ready`.
+- Database connectivity check returned `True`.
+- The API reported 20 records.
+- No migrations or seed operations were run during this check.
+
+### Stretch task: Restart API when database restarts
+- Added `restart: true` under the API service's `depends_on.db` configuration.
+- Validated the Compose configuration successfully.
+- Ran `docker compose restart db`.
+- Compose restarted the API after the database restart.
+- API `/health` returned `ok`; `/ready` returned `ready`.
+- Database connectivity remained healthy and 20 records were reported.

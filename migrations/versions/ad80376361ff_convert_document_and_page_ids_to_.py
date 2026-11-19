@@ -43,11 +43,15 @@ def upgrade() -> None:
     """)
 
     # Remove old relationships and primary keys.
-    op.drop_constraint("pages_doc_id_fkey", "pages", type_="foreignkey")
-    op.drop_constraint("pages_pkey", "pages", type_="primary")
-    op.drop_constraint("documents_pkey", "documents", type_="primary")
     op.drop_constraint(
-        "documents_sha256_key",
+        "fk_pages_doc_id_documents",
+        "pages",
+        type_="foreignkey",
+    )
+    op.drop_constraint("pk_pages", "pages", type_="primary")
+    op.drop_constraint("pk_documents", "documents", type_="primary")
+    op.drop_constraint(
+        "uq_documents_sha256",
         "documents",
         type_="unique",
     )

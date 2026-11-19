@@ -3,7 +3,7 @@
 
 A Thirukkural companion for teachers that helps find the right Kural for a value, situation, or classroom lesson.
 
-**Status:** Day 1 foundation - Python package and project setup completed. FastAPI service and quality checks are under development. Live URL will be added later.
+**Status:** Day 4 build completed - containerized API, Docker Compose stack, database migrations, unit and integration tests, and development task runner.
 
 ## Who it's for
 
@@ -76,3 +76,33 @@ Run the code quality check:
 ```bash
 uv run ruff check .
 ```
+
+## Run locally in one command
+
+You need Docker Desktop running. From a fresh clone:
+
+```bash
+docker compose up --build
+```
+
+The API is available at:
+- API documentation: http://localhost:8000/docs
+- Liveness check: http://localhost:8000/health
+- Readiness check: http://localhost:8000/ready
+
+Press Ctrl+C to stop the application. Then run:
+```bash
+docker compose down
+```
+
+Use `docker compose down -v` only when you also want to delete the database volumes.
+
+### Develop and test
+
+| Task | Command |
+|---|---|
+| Start development server | `uv run poe dev` |
+| Run unit tests | `uv run poe test` |
+| Run integration tests | `uv run poe test-integration` |
+| Run coverage | `uv run poe cov` |
+| Run lint and format checks | `uv run poe lint` |

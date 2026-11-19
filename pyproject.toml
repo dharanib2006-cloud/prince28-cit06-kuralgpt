@@ -1,4 +1,3 @@
-
 [project]
 name = "kuralgpt"
 version = "0.1.0"
@@ -25,11 +24,13 @@ build-backend = "uv_build"
 [dependency-groups]
 dev = [
     "httpx>=0.28.1",
+    "poethepoet>=0.49.0",
     "pre-commit>=4.7.0",
     "pytest>=9.2.0",
+    "pytest-asyncio>=1.5.0",
+    "pytest-cov>=7.1.0",
     "ruff>=0.17.5",
 ]
-
 
 [tool.ruff]
 line-length = 100
@@ -42,6 +43,24 @@ select = ["E", "F", "I", "B", "UP", "SIM"]
 testpaths = ["tests"]
 addopts = "-q"
 filterwarnings = ["ignore:Using `httpx` with `starlette.testclient`"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+
+[tool.coverage.run]
+branch = true
+source = ["kuralgpt"]
+omit = ["tests/*"]
 
 [tool.ruff.lint.flake8-bugbear]
 extend-immutable-calls = ["fastapi.Depends"]
+
+[tool.poe.tasks]
+dev = "uvicorn kuralgpt.api.main:create_app --factory --reload"
+lint = { sequence = ["_ruff_check", "_ruff_format"] }
+_ruff_check = "ruff check ."
+_ruff_format = "ruff format --check ."
+test = "pytest tests/unit"
+test-integration = "pytest tests/integration"
+cov = "pytest --cov=kuralgpt --cov-report=term-missing"
+migrate = "alembic upgrade head"
+seed = "python scripts/load_db.py"
