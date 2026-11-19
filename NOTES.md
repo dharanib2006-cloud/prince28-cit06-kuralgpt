@@ -235,3 +235,44 @@ docker compose port api 8000
 ## 6. Summary
 
 The Docker Compose stack starts successfully. Database migrations and sample data loading complete successfully. The API remains alive when PostgreSQL is stopped, readiness correctly returns HTTP 503 during the outage, and readiness recovers after PostgreSQL restarts.
+
+## 7. Testing and coverage
+
+### Unit tests
+- Command: `uv run poe test`
+- Result: 19 unit tests passed.
+- Unit-only coverage: 65%.
+
+### Integration tests
+- Command: `uv run poe test-integration`
+- Result: 8 integration tests passed.
+- A uniquely named temporary PostgreSQL database was created and migrated.
+- Automatic cleanup was verified; no temporary test databases remained.
+
+### Combined tests and coverage
+- Command: `uv run poe cov`
+- Result: 27 tests passed (19 unit and 8 integration).
+- Combined coverage: 74%.
+
+### Lint and formatting
+- Command: `uv run poe lint`
+- Ruff checks passed.
+- 49 files passed the formatting check.
+
+### Coverage observations
+- `database.py` and `store.py` had no executed lines in the coverage report.
+- Combined coverage is recorded as measured: 74%.
+
+## 8. Day 4 verification summary
+- Multi-stage Docker image built successfully.
+- Runtime uses the non-root `app` user.
+- Docker image size: approximately 71.1 MiB.
+- Docker Compose services started and passed health checks.
+- Migrations and sample data loading completed successfully.
+- `/health` remained available during the database outage.
+- `/ready` returned HTTP 503 during the outage and recovered after PostgreSQL restarted.
+- Unit tests: 19 passed.
+- Integration tests: 8 passed.
+- Combined tests: 27 passed.
+- Ruff lint and formatting checks passed.
+- Temporary integration-test database cleanup was verified.
