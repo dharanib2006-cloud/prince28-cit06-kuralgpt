@@ -24,6 +24,9 @@ RUN uv sync --frozen --no-dev
 # Stage 2: Runtime
 FROM python:3.12-slim AS runtime
 
+ARG GIT_SHA=dev
+ENV GIT_SHA=${GIT_SHA}
+
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PATH="/app/.venv/bin:$PATH" \

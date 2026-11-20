@@ -21,6 +21,20 @@ def test_health_is_ok(client):
     assert response.json()["status"] == "ok"
 
 
+def test_health_includes_git_sha(monkeypatch):
+    settings = Settings(app_env="ci", git_sha="test-commit-123")
+    monkeypatch.setattr("kuralgpt.api.routes.health.get_settings", lambda: settings)
+
+    with TestClient(create_app(settings)) as test_client:
+        response = test_client.get("/health")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "status": "ok",
+        "git_sha": "test-commit-123",
+    }
+
+
 def test_ready_when_at_least_20_records_are_loaded(tmp_path):
     settings = Settings(app_env="ci", data_file=tmp_path / "unused.json")
     mock_session = AsyncMock()
