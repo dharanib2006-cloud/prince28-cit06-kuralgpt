@@ -1,6 +1,7 @@
 # KuralGPT
 
 [![CI](https://github.com/dharanib2006-cloud/prince28-cit06-kuralgpt/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/dharanib2006-cloud/prince28-cit06-kuralgpt/actions/workflows/ci.yml)
+[![Live](https://img.shields.io/website?url=https%3A%2F%2Fkuralgpt.onrender.com&label=Live)](https://kuralgpt.onrender.com)
 
 **Live API:** https://kuralgpt.onrender.com
 
