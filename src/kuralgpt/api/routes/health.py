@@ -11,6 +11,7 @@ MINIMUM_RECORDS = 20
 
 
 @router.get("/health")
+@router.head("/health")
 async def health() -> dict[str, str]:
     return {"status": "ok", "git_sha": get_settings().git_sha}
 
