@@ -18,6 +18,8 @@ class Settings(BaseSettings):
 
     app_name: str = "kuralgpt"
     app_env: str = Field(pattern="^(local|ci|production)$")
+    # The commit this image was built from. CI sets it.
+    git_sha: str = "dev"
     log_level: str = "INFO"
     data_file: Path = Path("data/sample_records.json")
 
