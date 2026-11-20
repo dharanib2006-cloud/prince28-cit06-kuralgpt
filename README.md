@@ -1,9 +1,16 @@
-
 # KuralGPT
+
+[![CI](https://github.com/dharanib2006-cloud/prince28-cit06-kuralgpt/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/dharanib2006-cloud/prince28-cit06-kuralgpt/actions/workflows/ci.yml)
+
+**Live API:** https://kuralgpt.onrender.com
+
+**API Documentation:** https://kuralgpt.onrender.com/docs
+
+**System Status:** [KuralGPT System Status](https://stats.uptimerobot.com/OYt04cXjzo)
 
 A Thirukkural companion for teachers that helps find the right Kural for a value, situation, or classroom lesson.
 
-**Status:** Day 4 build completed - containerized API, Docker Compose stack, database migrations, unit and integration tests, and development task runner.
+**Status:** Day 5 build completed — containerized API, Docker Compose stack, database migrations, unit and integration tests, CI/CD automation, Render deployment, and uptime monitoring.
 
 ## Who it's for
 
@@ -42,6 +49,8 @@ The hardest technical challenge is retrieving the correct Kural for a teacher's 
 - Correct Kural should appear in the top 3 results for at least 85% of 50 theme-based questions.
 
 ## Run it locally
+
+Install project dependencies:
 
 ```bash
 uv sync
@@ -86,11 +95,13 @@ docker compose up --build
 ```
 
 The API is available at:
+
 - API documentation: http://localhost:8000/docs
 - Liveness check: http://localhost:8000/health
 - Readiness check: http://localhost:8000/ready
 
 Press Ctrl+C to stop the application. Then run:
+
 ```bash
 docker compose down
 ```
@@ -106,3 +117,27 @@ Use `docker compose down -v` only when you also want to delete the database volu
 | Run integration tests | `uv run poe test-integration` |
 | Run coverage | `uv run poe cov` |
 | Run lint and format checks | `uv run poe lint` |
+
+## Production deployment
+
+KuralGPT is deployed on Render.
+
+- **Live application:** https://kuralgpt.onrender.com
+- **API documentation:** https://kuralgpt.onrender.com/docs
+- **Health endpoint:** https://kuralgpt.onrender.com/health
+- **Readiness endpoint:** https://kuralgpt.onrender.com/ready
+- **Public monitoring page:** https://stats.uptimerobot.com/OYt04cXjzo
+
+## CI/CD
+
+- GitHub Actions runs continuous integration checks on pull requests.
+- The main branch is protected and requires pull requests and successful checks.
+- Successful merges to `main` trigger the production deployment workflow.
+- The deployment workflow runs database migrations and smoke tests.
+- UptimeRobot monitors the production health endpoint every 5 minutes.
+
+## Monitoring
+
+The public status page displays the availability of the KuralGPT production health endpoint.
+
+[View KuralGPT System Status](https://stats.uptimerobot.com/OYt04cXjzo)
