@@ -348,3 +348,49 @@ The Docker Compose stack starts successfully. Database migrations and sample dat
 - Compose restarted the API after the database restart.
 - API `/health` returned `ok`; `/ready` returned `ready`.
 - Database connectivity remained healthy and 20 records were reported.
+
+
+---
+
+# Day 5 – CI/CD and Going Live
+
+## 1. Live Deployment
+- Live URL: https://kuralgpt.onrender.com
+- CI run: https://github.com/dharanib2006-cloud/prince28-cit06-kuralgpt/actions/runs/44766034616
+- Automatic CD run: https://github.com/dharanib2006-cloud/prince28-cit06-kuralgpt/actions/runs/44766244282
+- The application was deployed automatically after merging PR #7.
+
+## 2. Smoke Test
+- The CD workflow completed successfully.
+- Smoke tests verified `/health`, `/ready`, and `/v1/documents?limit=1`.
+- `/health` returned the deployed Git SHA.
+- `/ready` confirmed database readiness.
+
+## 3. Rollback Drill
+- Rolled back to: `febc3dd1e54a7042bc1eb9808d4ed416cc2cb9ae`
+- Verified the rollback using `/health`.
+- `/ready` returned `ready`; database connectivity was successful.
+- Rolled forward to: `c93e70e4fec33d75ec9dd3aa82cc4c2f6da33131`
+- Verified the latest SHA using `/health` and confirmed `/ready` returned `ready`.
+
+### Why the database stayed on the newer schema
+The rollback workflow deploys the older application image without running database downgrade migrations. Therefore, the database remains at the newer schema while the older application version is restored.
+
+## 4. Where My Secrets Are Stored
+- Neon database connection string: GitHub Secret `DATABASE_URL` and Render environment variables.
+- Render deploy hook: GitHub Secret `RENDER_DEPLOY_HOOK` only.
+- No secret values are stored in the repository.
+
+## 5. Monitoring
+- Monitoring service: UptimeRobot.
+- Monitor URL: https://stats.uptimerobot.com/OYt04cXjzo
+- Monitored endpoint: `https://kuralgpt.onrender.com/health`
+- Check interval: 5 minutes.
+- The `/health` endpoint supports GET and HEAD requests.
+
+## 6. First-Request Speed Improvement
+One possible improvement is to reduce application startup time by optimizing dependency loading and initialization.
+
+## 7. Week-1 Tag
+- Git tag: `week-1`
+- The tag was pushed to the remote repository.
