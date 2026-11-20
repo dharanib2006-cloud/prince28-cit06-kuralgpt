@@ -394,3 +394,6 @@ One possible improvement is to reduce application startup time by optimizing dep
 ## 7. Week-1 Tag
 - Git tag: `week-1`
 - The tag was pushed to the remote repository.
+
+A human approval gate is worth the delay when deploying critical production changes that could affect users, security, or important data.
+It provides a final manual check before deployment, reducing the risk of accidental or harmful releases.
