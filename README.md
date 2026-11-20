@@ -2,10 +2,11 @@
 
 [![CI](https://github.com/dharanib2006-cloud/prince28-cit06-kuralgpt/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/dharanib2006-cloud/prince28-cit06-kuralgpt/actions/workflows/ci.yml)
 [![Live](https://img.shields.io/website?url=https%3A%2F%2Fkuralgpt.onrender.com&label=Live)](https://kuralgpt.onrender.com)
+[![System Status](https://img.shields.io/badge/UptimeRobot-System%20Status-blue)](https://stats.uptimerobot.com/OYt04cXjzo)
 
-**Live API:** https://kuralgpt.onrender.com
+**Live API:** [https://kuralgpt.onrender.com](https://kuralgpt.onrender.com)
 
-**API Documentation:** https://kuralgpt.onrender.com/docs
+**API Documentation:** [https://kuralgpt.onrender.com/docs](https://kuralgpt.onrender.com/docs)
 
 **System Status:** [KuralGPT System Status](https://stats.uptimerobot.com/OYt04cXjzo)
 
@@ -25,8 +26,8 @@ Teachers need to select suitable Thirukkural couplets while preparing value-educ
 
 Thirukkural contains 1,330 couplets along with commentaries and English translations.
 
-- https://github.com/tk120404/thirukkural
-- https://www.projectmadurai.org/
+- [Thirukkural dataset](https://github.com/tk120404/thirukkural)
+- [Project Madurai](https://www.projectmadurai.org/)
 
 **Terms:** The tk120404 dataset is licensed under Apache-2.0. Project Madurai texts are available for non-commercial use with credit.
 
@@ -71,7 +72,7 @@ uv run uvicorn kuralgpt.api.main:create_app --factory --reload
 
 Then open:
 
-http://localhost:8000/docs
+[http://localhost:8000/docs](http://localhost:8000/docs)
 
 ## Checks
 
@@ -97,9 +98,9 @@ docker compose up --build
 
 The API is available at:
 
-- API documentation: http://localhost:8000/docs
-- Liveness check: http://localhost:8000/health
-- Readiness check: http://localhost:8000/ready
+- API documentation: [http://localhost:8000/docs](http://localhost:8000/docs)
+- Liveness check: [http://localhost:8000/health](http://localhost:8000/health)
+- Readiness check: [http://localhost:8000/ready](http://localhost:8000/ready)
 
 Press Ctrl+C to stop the application. Then run:
 
@@ -123,11 +124,11 @@ Use `docker compose down -v` only when you also want to delete the database volu
 
 KuralGPT is deployed on Render.
 
-- **Live application:** https://kuralgpt.onrender.com
-- **API documentation:** https://kuralgpt.onrender.com/docs
-- **Health endpoint:** https://kuralgpt.onrender.com/health
-- **Readiness endpoint:** https://kuralgpt.onrender.com/ready
-- **Public monitoring page:** https://stats.uptimerobot.com/OYt04cXjzo
+- **Live application:** [https://kuralgpt.onrender.com](https://kuralgpt.onrender.com)
+- **API documentation:** [https://kuralgpt.onrender.com/docs](https://kuralgpt.onrender.com/docs)
+- **Health endpoint:** [https://kuralgpt.onrender.com/health](https://kuralgpt.onrender.com/health)
+- **Readiness endpoint:** [https://kuralgpt.onrender.com/ready](https://kuralgpt.onrender.com/ready)
+- **Public monitoring page:** [https://stats.uptimerobot.com/OYt04cXjzo](https://stats.uptimerobot.com/OYt04cXjzo)
 
 ## CI/CD
 
@@ -142,3 +143,5 @@ KuralGPT is deployed on Render.
 The public status page displays the availability of the KuralGPT production health endpoint.
 
 [View KuralGPT System Status](https://stats.uptimerobot.com/OYt04cXjzo)
+
+The System Status badge links to the public UptimeRobot status page. It represents service status and does not display the rolling 30-day uptime percentage.
