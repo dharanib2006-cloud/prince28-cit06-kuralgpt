@@ -397,3 +397,19 @@ One possible improvement is to reduce application startup time by optimizing dep
 
 A human approval gate is worth the delay when deploying critical production changes that could affect users, security, or important data.
 It provides a final manual check before deployment, reducing the risk of accidental or harmful releases.
+
+
+## 8. Stretch Task — Change Lead Time Measurement
+
+Measured on 20 November 2026, from PR merge to successful live smoke test for three CD deployments.
+
+| CD Run | PR Merge Time (IST) | Smoke Test Passed (IST) | Lead Time |
+|---|---|---|---|
+| #7 | 10:39:22 PM | 10:42:04 PM | 2 min 42 sec |
+| #8 | 11:24:24 PM | 11:26:44 PM | 2 min 20 sec |
+| #9 | 11:46:33 PM | 11:48:37 PM | 2 min 4 sec |
+
+- Average change lead time: 2 minutes 22 seconds.
+- Slowest deployment: CD run #7 (2 minutes 42 seconds).
+- The smoke test was the final verification step in each deployment.
+- All three CD runs completed successfully.
