@@ -358,26 +358,40 @@ The Docker Compose stack starts successfully. Database migrations and sample dat
 - Live URL: https://kuralgpt.onrender.com
 - CI run: https://github.com/dharanib2006-cloud/prince28-cit06-kuralgpt/actions/runs/44766034616
 - Automatic CD run: https://github.com/dharanib2006-cloud/prince28-cit06-kuralgpt/actions/runs/44766244282
-- The application was deployed automatically after merging PR #7.
+- The application was deployed after merging PR #7.
+- Latest deployment was verified using the `/health` endpoint.
 
 ## 2. Smoke Test
 - The CD workflow completed successfully.
-- Smoke tests verified `/health`, `/ready`, and `/v1/documents?limit=1`.
+- Smoke tests verified:
+  - `/health`
+  - `/ready`
+  - `/v1/documents?limit=1`
 - `/health` returned the deployed Git SHA.
 - `/ready` confirmed database readiness.
 
-## 3. Rollback Drill
-- Rolled back to: `febc3dd1e54a7042bc1eb9808d4ed416cc2cb9ae`
+## 3. Rollback and Roll-forward Drill
+
+### Rollback
+- Rolled back to commit: `febc3dd1e54a7042bc1eb9808d4ed416cc2cb9ae`
 - Verified the rollback using `/health`.
-- `/ready` returned `ready`; database connectivity was successful.
-- Rolled forward to: `c93e70e4fec33d75ec9dd3aa82cc4c2f6da33131`
-- Verified the latest SHA using `/health` and confirmed `/ready` returned `ready`.
+- `/ready` returned `ready`.
+- Database connectivity was successful.
 
-### Why the database stayed on the newer schema
-The rollback workflow deploys the older application image without running database downgrade migrations. Therefore, the database remains at the newer schema while the older application version is restored.
+### Roll-forward
+- Rolled forward to commit: `c93e70e4fec33d75ec9dd3aa82cc4c2f6da33131`
+- Verified the deployed SHA using `/health`.
+- Confirmed `/ready` returned `ready`.
 
-## 4. Where My Secrets Are Stored
-- Neon database connection string: GitHub Secret `DATABASE_URL` and Render environment variables.
+### Database schema consideration
+The rollback workflow deploys the older application image without running database downgrade migrations. Therefore, the database remains on the newer schema while the older application version is restored.
+
+### Timing records
+- Rollback duration: Not recorded.
+- Roll-forward duration: Not recorded.
+
+## 4. Secret Storage
+- Neon database connection string: GitHub Secret `DATABASE_URL` and Render environment variable `DATABASE_URL`.
 - Render deploy hook: GitHub Secret `RENDER_DEPLOY_HOOK` only.
 - No secret values are stored in the repository.
 
@@ -389,17 +403,17 @@ The rollback workflow deploys the older application image without running databa
 - The `/health` endpoint supports GET and HEAD requests.
 
 ## 6. First-Request Speed Improvement
-One possible improvement is to reduce application startup time by optimizing dependency loading and initialization.
+- A possible future improvement is to reduce application startup time by optimizing dependency loading and initialization.
+- This is a proposed improvement and has not been recorded as an implemented optimization.
 
 ## 7. Week-1 Tag
 - Git tag: `week-1`
 - The tag was pushed to the remote repository.
 
-A human approval gate is worth the delay when deploying critical production changes that could affect users, security, or important data.
-It provides a final manual check before deployment, reducing the risk of accidental or harmful releases.
+## 8. Human Approval Gate
+A human approval gate is useful when deploying critical production changes that could affect users, security, or important data. It provides a final manual check before deployment and helps reduce accidental or harmful releases.
 
-
-## 8. Stretch Task — Change Lead Time Measurement
+## 9. Stretch Task – Change Lead Time Measurement
 
 Measured on 20 November 2026, from PR merge to successful live smoke test for three CD deployments.
 
@@ -407,9 +421,10 @@ Measured on 20 November 2026, from PR merge to successful live smoke test for th
 |---|---|---|---|
 | #7 | 10:39:22 PM | 10:42:04 PM | 2 min 42 sec |
 | #8 | 11:24:24 PM | 11:26:44 PM | 2 min 20 sec |
-| #9 | 11:46:33 PM | 11:48:37 PM | 2 min 4 sec |
+| #9 | 11:46:33 PM | 11:48:37 PM | 2 min 04 sec |
 
 - Average change lead time: 2 minutes 22 seconds.
 - Slowest deployment: CD run #7 (2 minutes 42 seconds).
 - The smoke test was the final verification step in each deployment.
+- All three CD runs completed successfully.erification step in each deployment.
 - All three CD runs completed successfully.
