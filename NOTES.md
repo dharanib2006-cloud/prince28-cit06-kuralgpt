@@ -1,4 +1,4 @@
-﻿# Day 3 — PostgreSQL Migration Notes
+# Day 3 — PostgreSQL Migration Notes
 
 ## 1. Database
 
@@ -428,3 +428,33 @@ Measured on 20 November 2026, from PR merge to successful live smoke test for th
 - The smoke test was the final verification step in each deployment.
 - All three CD runs completed successfully.erification step in each deployment.
 - All three CD runs completed successfully.
+
+## D06 · Collecting the corpus
+
+- Start target: All 1,330 kurals with 2 commentaries
+- Collection method tested: Git repository (`tk120404/thirukkural`)
+- Repository commit: `cf3ff6c5a73c23b4092913156830457caab65fd4`
+- Matching JSON files: 2
+
+### Kill and resume
+
+- Run 1: Repository download completed 2 files before interruption could be tested.
+- Run 2: downloaded=0, skipped=2.
+- Run 3: downloaded=0, skipped=2.
+- `.part` file check after repository runs: No incomplete files found.
+- Manual Ctrl+C test: Interrupted a local 10 MB download after approximately 10 seconds.
+- Cleanup after interruption: No `.part` files remained.
+- Recovery test: Restarted the same command; completed=1, failed=0.
+- Final test file: `local-test-slow-file-6b4a4f88.txt` (10,485,760 bytes).
+- Automated cancellation cleanup test: Passed.
+- Automated delete-and-redownload test: Passed.
+- Downloader unit tests: 23 passed.
+
+
+### Additional automated recovery tests
+
+- Interruption cleanup test: Passed.
+- Incomplete `.part` file is removed after cancellation.
+- Delete-and-redownload test: Passed.
+- Deleted completed files are downloaded again.
+- Downloader unit tests: 23 passed.

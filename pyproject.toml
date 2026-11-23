@@ -1,25 +1,23 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
 [project]
 name = "kuralgpt"
 version = "0.1.0"
-description = "A Thirukkural companion that helps teachers prepare value-education lessons."
-readme = "README.md"
-authors = [
-    { name = "dharani.b", email = "dharani.b2006@gmail.com" }
-]
 requires-python = ">=3.12"
 dependencies = [
     "alembic>=1.20.1",
     "asyncpg>=0.32.0",
     "fastapi>=0.163.1",
+    "httpx>=0.28.1",
+    "protego>=0.7.0",
     "psycopg[binary]>=3.3.9",
     "pydantic-settings>=2.16.3",
+    "pypdf>=7.1.1",
     "sqlalchemy[asyncio]>=2.1.9",
     "uvicorn[standard]>=0.54.0",
 ]
-
-[build-system]
-requires = ["uv_build>=0.13.8,<0.14.0"]
-build-backend = "uv_build"
 
 [dependency-groups]
 dev = [
@@ -35,9 +33,11 @@ dev = [
 [tool.ruff]
 line-length = 100
 target-version = "py312"
+extend-exclude = [".day3_api_backup"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "SIM"]
+ignore = ["B008"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -45,14 +45,6 @@ addopts = "-q"
 filterwarnings = ["ignore:Using `httpx` with `starlette.testclient`"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
-
-[tool.coverage.run]
-branch = true
-source = ["kuralgpt"]
-omit = ["tests/*"]
-
-[tool.ruff.lint.flake8-bugbear]
-extend-immutable-calls = ["fastapi.Depends"]
 
 [tool.poe.tasks]
 dev = "uvicorn kuralgpt.api.main:create_app --factory --reload"
