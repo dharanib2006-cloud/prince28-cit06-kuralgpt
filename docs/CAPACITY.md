@@ -3,13 +3,12 @@
 <!-- generated:start -->
 ### Generated measurements
 
-- Current downloaded files: **2.31 MB**
+- Current downloaded files: **4.24 MB**
 - Current Kural records: **1,330**
 - Current PDF pages: **0**
 - Full corpus planning target: **3,000 PDF pages**
-- Estimated current corpus tokens (planning assumption): **133,000**
-- Estimated current corpus chunks at 500 tokens each: **266**
-- Full corpus target: **3,000 PDF pages** (additional text not yet collected)
+- Estimated text tokens (planning assumption): **133,000**
+- Estimated chunks at 500 tokens each: **266**
 - Vector dimensions: **1,024**
 - Estimated raw vector storage (float32): **1.04 MB**
 - Example embedding budget: **$0.20 (INR 19.00)**
@@ -18,7 +17,7 @@
 
 1. **Is embedding cost a problem?** The example budget is $0.20 (approximately INR 19.00); confirm the actual provider price and token count before deployment.
 
-2. **Do vectors and text fit in free Postgres?** Yes, the current Neon Free Plan uses 32.27 MB out of its 1 GB storage allowance, leaving approximately 0.97 GB. The estimated raw vector storage is 1.04 MB. Actual database usage will also include text, indexes, metadata and row overhead. The downloaded source files are separate from database storage unless loaded into the database.
+2. **Do vectors and text fit in free Postgres?** Compare the estimated 1.04 MB of raw vectors plus 4.24 MB of source files with the storage limit shown in your actual database dashboard. Database indexes and row overhead are not included.
 
 3. **Which number is least certain?** The token and chunk estimate is rough; measure actual extracted text tokens and chunk counts from the final corpus.
 

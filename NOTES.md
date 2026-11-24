@@ -510,3 +510,426 @@ I also tested interrupted downloads and confirmed that incomplete `.part` files 
 - Ruff formatting: Passed; 53 files already formatted.
 - Unit tests: 45 passed.
 - No test failures.
+
+### Full Corpus Parsing and Failure Report
+
+- Total available files: 5
+- Successfully parsed: 5
+- Failed files: 0
+- Total pages parsed: 436
+- Second run: 5 files already parsed
+- Newly processed on second run: 0
+- Duplicate pages created: 0
+- Parse failures recorded: 0
+
+**Result:** All 5 available files were parsed successfully. The second run confirmed idempotency because previously parsed files were skipped.
+
+**Known limitation:** The local corpus contains only 5 supported files, rather than the expected 364 files. Therefore, the full 364-file target could not be tested.
+
+**Failure handling:** No failures occurred, so no retry was necessary. No failures out of 5 files.
+
+
+
+---
+
+## D06 Continuation – Project Madurai HTML Collection (24 November 2026)
+
+### 1. Download Results
+
+Collected 15 HTML source files from Project Madurai.
+
+| Status | Count |
+|---|---:|
+| Completed | 15 |
+| Blocked | 0 |
+| Failed | 0 |
+| Too large | 0 |
+| Skipped | 0 |
+
+All 15 files were downloaded successfully.
+
+### 2. Encoding Issue and Fix
+
+During Unicode verification, one HTML file was found to use UTF-16 LE encoding instead of UTF-8:
+
+- `project_madurai-pmuni0048-c414893b.html`
+
+The parser originally supported UTF-8 only. I updated `_parse_html()` to detect UTF-16 BOM markers and decode the file correctly.
+
+Verification:
+- 14 files decoded as UTF-8.
+- 1 file decoded as UTF-16 LE.
+- All 15 files contained Tamil text.
+- No replacement characters were found.
+
+### 3. Parsing Results
+
+Executed:
+
+`uv run python scripts/parse_corpus.py --source-dir data/raw/project_madurai --limit 20`
+
+| Metric | Result |
+|---|---:|
+| Files found | 15 |
+| Successfully parsed | 15 |
+| Failed | 0 |
+| Pages added | 256 |
+| Processing time | 49.1 seconds |
+
+All 15 HTML files were parsed successfully.
+
+### 4. Individual Page Counts
+
+| Source file | Pages |
+|---|---:|
+| pmuni0002 | 6 |
+| pmuni0016 | 21 |
+| pmuni0022 | 2 |
+| pmuni0024 | 7 |
+| pmuni0025 | 11 |
+| pmuni0027 | 14 |
+| pmuni0028 | 24 |
+| pmuni0029 | 14 |
+| pmuni0036 | 21 |
+| pmuni0038 | 28 |
+| pmuni0047 | 7 |
+| pmuni0048 | 7 |
+| pmuni0055 | 6 |
+| pmuni0056 | 9 |
+| pmuni0057 | 79 |
+| **Total** | **256** |
+
+### 5. Idempotency Verification
+
+Executed the parser again without the limit:
+
+`uv run python scripts/parse_corpus.py --source-dir data/raw/project_madurai`
+
+Results:
+- Files found: 15
+- Successful: 0
+- Failed: 0
+- Already parsed: 15
+- Pages added: 0
+
+This confirms that rerunning the parser does not create duplicate documents or pages.
+
+### 6. Database Verification
+
+Connected to the existing Neon PostgreSQL database and performed read-only verification.
+
+| Metric | Database result |
+|---|---:|
+| Total documents | 1,350 |
+| Total pages | 2,022 |
+| Project Madurai documents | 15 |
+| Project Madurai pages | 256 |
+| Project Madurai parse failures | 0 |
+
+All 15 documents had matching recorded and actual page counts.
+
+New Project Madurai document IDs: 1824–1838.
+
+### 7. Dataset and Capacity Report
+
+Executed:
+
+`uv run python scripts/dataset_report.py`
+
+Results:
+- Kural records detected: 1,330
+- Downloaded files detected: 20
+- PDF pages: 0
+- `DATASET.md` regenerated successfully.
+- `docs/CAPACITY.md` regenerated successfully.
+
+Note: The PDF page count does not include the 256 pages extracted from Project Madurai HTML files. These are tracked separately.
+
+### 8. Current Outcome
+
+- Downloaded and verified 15 Project Madurai HTML files.
+- Fixed UTF-16 LE decoding support.
+- Parsed all 15 files successfully.
+- Added 256 pages to the database.
+- Verified zero Project Madurai parsing failures.
+- Confirmed parser idempotency.
+- Regenerated dataset and capacity reports.
+
+**Result:** Project Madurai HTML collection and database ingestion completed successfully. Existing corpus records and previous project notes were preserved.
+
+**Remaining work:** Run linting, formatting checks, and tests to verify the complete project after these changes.
+
+### 9. Licence Reminder
+
+The downloaded files still require source-specific reuse and copyright verification before public or commercial deployment. Successful downloading and parsing do not establish permission to redistribute the texts.
+
+
+## Step 5 – Parser Comparison
+
+### 1. Objective
+
+Compared two parsing approaches to identify which parser extracts Tamil content more effectively from the Project Madurai HTML files.
+
+- **Parser A:** Trafilatura
+- **Parser B:** Plain HTML tag stripping
+
+The comparison considered:
+
+- Extracted text length
+- Heading detection
+- Table detection
+- Parsing time
+- Tamil text readability
+- Preservation of poems, section headings and metadata
+
+### 2. Running the Comparison
+
+Selected the 10 largest HTML files from the corpus.
+
+Command used:
+
+```powershell
+uv run python scripts/compare_parsers.py $files
+```
+
+The comparison results were written to `NOTES.md`.
+
+### 3. Parser Comparison Results
+
+| File | Trafilatura chars | Plain tags chars | Trafilatura headings | Plain headings | Trafilatura time (s) | Plain time (s) | Better parser and reason |
+|---|---:|---:|---:|---:|---:|---:|---|
+| pmuni0057-b743c7f2.html | 235855 | 234375 | 0 | 2 | 0.513 | 0.045 | Plain tags – faster and detects two headings. Heading correctness should be checked. |
+| pmuni0038-502711e7.html | 90945 | 86311 | 12 | 12 | 0.262 | 0.032 | Trafilatura – preserves Tamil text, headings, acknowledgements, poem numbers and metadata in readable Markdown. |
+| pmuni0028-a852d112.html | 71458 | 69490 | 0 | 2 | 0.185 | 0.020 | Trafilatura – preserves readable Tamil poems, title, author and section titles. Heading metadata was empty in inspected pages. |
+| pmuni0036-64d74aa8.html | 61390 | 60830 | 0 | 2 | 0.204 | 0.008 | Trafilatura – preserves Tamil poems, title, author and poem numbers. Section headings appear in text, but heading metadata is empty. |
+| pmuni0016-e486fc8d.html | 60366 | 58315 | 2 | 2 | 0.174 | 0.014 | Trafilatura – extracts more text with the same heading count and preserves readable Tamil content. |
+| pmuni0029-2c0dc8d0.html | 34647 | 36532 | 4 | 4 | 0.288 | 0.004 | Plain tags – faster and extracts more characters. Extra content should be checked for unnecessary boilerplate. |
+| pmuni0027-9125683b.html | 32361 | 34459 | 5 | 5 | 0.252 | 0.008 | Plain tags – faster and extracts more characters with the same heading count. |
+| pmuni0056-ce4cfceb.html | 30232 | 28785 | 3 | 3 | 0.094 | 0.003 | Trafilatura – preserves Tamil poems, section labels and poem numbers, but heading metadata remains generic. |
+| pmuni0025-48fe335a.html | 24569 | 26045 | 5 | 5 | 0.116 | 0.005 | Plain tags – faster and extracts more characters with the same heading count. |
+| pmuni0024-01033a52.html | 19578 | 18933 | 1 | 1 | 0.086 | 0.005 | Trafilatura – extracts slightly more text and preserves the title and readable content. |
+
+**Comparison observations:**
+
+- Trafilatura extracted more characters in 7 out of 10 files.
+- Plain tag stripping was faster in all 10 comparisons.
+- All 10 comparisons reported zero detected tables.
+- Character count alone does not determine extraction quality.
+- The last six files were sampled rather than fully compared manually.
+
+### 4. Original HTML and Parsed Content Inspection
+
+Inspected four original HTML files alongside their corresponding parsed database pages.
+
+**File 1: pmuni0038 – patiRRuppattu**
+
+- Original HTML contains Tamil poems, acknowledgements, section headings and metadata.
+- Trafilatura preserves readable Tamil text, poem numbers and metadata.
+- Markdown formatting makes the extracted content easier to read.
+- Some special Tamil characters and formatting artifacts need checking.
+
+**Observation:** Trafilatura is preferred because it preserves document structure and readable Tamil content.
+
+**File 2: pmuni0056 – tiNaimAlai nURRaimpatu**
+
+- Original HTML contains five main sections: குறிஞ்சி, நெய்தல், பாலை, முல்லை and மருதம்.
+- Parsed content preserves Tamil poems, section labels, poem numbers and introductory information.
+- The final section and completion text are also present.
+- Heading metadata contains a generic document-level heading path instead of individual section headings.
+
+**Observation:** Trafilatura preserves the content well, but heading metadata needs improvement.
+
+**File 3: pmuni0028 – aingurunUru**
+
+- Original HTML contains the Tamil title, author details, poems and internal section titles.
+- Parsed content preserves readable Tamil poems, poem numbers and section titles.
+- The inspected database pages had empty heading metadata.
+- The original HTML uses ordinary text and line-break tags for much of its content.
+
+**Observation:** Trafilatura preserves the text, but heading detection does not capture the section titles in the inspected pages.
+
+**File 4: pmuni0036 – pazamozhi nAnUru**
+
+- Original HTML contains the Tamil title, author details, introductory information and poems.
+- Parsed content preserves Tamil poems, title, author and poem numbers.
+- Section headings appear in the extracted text.
+- The inspected pages have empty heading metadata.
+- Some numbering and formatting artifacts are visible in the extracted Markdown.
+
+**Observation:** Trafilatura preserves readable Tamil content, but heading metadata is empty. Plain tag stripping is faster.
+
+### 5. Quick Inspection of the Remaining Six Files
+
+The first parsed page of each remaining file was sampled.
+
+**File 5: pmuni0016 – nAlaTiyAr**
+
+- Tamil title, author contribution information and poems are present.
+- The extracted content includes section titles.
+- Heading metadata contains two entries.
+
+**Observation:** Trafilatura extracts more text and retains the same number of headings as plain tag stripping.
+
+**File 6: pmuni0024 – AcarakkOvai**
+
+- Tamil title and author details are present.
+- Introductory information and Unicode instructions are also extracted.
+- Heading metadata contains one entry.
+
+**Observation:** Trafilatura extracts slightly more text, with the same heading count.
+
+**File 7: pmuni0025 – patinenkiizkannakku noolkaL-I**
+
+- Tamil titles and author details for multiple literary works are present.
+- Introductory information and document metadata are extracted.
+- Both parsers detect five headings.
+
+**Observation:** Plain tag stripping is faster and extracts more characters. The additional text should be checked for useful content or boilerplate.
+
+**File 8: pmuni0027 – patinenkiizkannakku noolkaL-II**
+
+- Tamil titles and details of multiple literary works are present.
+- Introductory information and document metadata are extracted.
+- Both parsers detect five headings.
+
+**Observation:** Plain tag stripping is faster and extracts more characters with the same heading count.
+
+**File 9: pmuni0029 – patinenkiizkannakku noolkaL-III**
+
+- Tamil titles and author details are present.
+- The document contains information about multiple literary works.
+- Both parsers detect four headings.
+
+**Observation:** Plain tag stripping is faster and extracts more characters. Content quality should be checked before making a final parser decision.
+
+**File 10: pmuni0057 – puRanAnURu**
+
+- Parsed content contains readable Tamil poems and poem-related details.
+- The inspected database page has empty heading metadata.
+- The comparison script detected two headings with plain tag stripping.
+
+**Observation:** Plain tag stripping is considerably faster and detects two headings, but their correctness needs verification.
+
+### 6. Tables, Headings and Text Quality
+
+- The comparison script reported zero detected tables across the 10 files.
+- No actual HTML tables were identified in the inspected source portions.
+- Some documents have section headings in extracted text, but these are not always captured in structured heading metadata.
+- Tamil poems, titles and author details are generally preserved.
+- Some formatting artifacts, escaped numbering and special characters require checking.
+- Plain tag stripping is faster in all 10 measured comparisons.
+- More extracted characters do not automatically mean better extraction quality.
+
+### 7. Parser Choice
+
+For the current Project Madurai HTML corpus, **Trafilatura is the preferred general-purpose parser**, based on the four detailed original-versus-parsed inspections.
+
+Reasons:
+
+1. It produces readable extracted Tamil text.
+2. It preserves poems, titles, author details and document content.
+3. It provides useful Markdown formatting.
+4. It generally extracts more characters in the detailed inspections.
+
+However, plain tag stripping is considerably faster and performs better on some files according to the measured character counts and heading counts.
+
+The main improvement needed is better detection of section headings in structured heading metadata.
+
+### 8. PDF Parser Comparison
+
+The current corpus contains 15 Project Madurai HTML files and one Markdown file. No PDF files were available.
+
+Therefore, PyMuPDF and pypdf could not be compared using the current corpus.
+
+No PDF parser winner was selected because there was no PDF test data.
+
+### 9. Final Conclusion
+
+Trafilatura is selected as the preferred general-purpose parser for the current HTML corpus because it preserves readable Tamil content and useful document structure.
+
+Plain tag stripping is faster and may be suitable for simpler files, but speed and character count alone are not sufficient to determine extraction quality.
+
+The main limitation identified is inconsistent section-heading detection in structured heading metadata.
+
+All 10 HTML files have been compared using the parser comparison script. Four files have been inspected in detail against their original HTML and parsed database content. The remaining six files have been sampled through their parsed first pages and comparison metrics.
+
+---
+
+
+# Day 7 – Parsing My Corpus
+
+### 1. Corpus Parsing Results
+
+- Files in the manifest: 19 actual downloaded file records (excluding 5 repository metadata records).
+- Successfully parsed manifest files: 19.
+- Additional database document: 1 GitHub repository-tree JSON file not listed in the manifest.
+- Total parsed database documents: 20.
+- Recorded parse failures: 0.
+- Pages in PostgreSQL for the parsed corpus: 692.
+- Parsing coverage: 100% of manifest file records.
+
+The database contains 1,350 documents and 2,022 pages in total. The Day 7 parsed-corpus count of 692 pages includes only the HTML, JSON, Markdown and text source documents.
+
+### 2. Failures by Reason
+
+| Reason | Files | What I did |
+|---|---:|---|
+| No recorded parse failures | 0 | No parse-failure fixes were required. |
+
+- The one I fixed: Not applicable. No file was recorded in the parse_failures table.
+- An additional GitHub repository-tree JSON document was present in the database but not in the manifest. It was identified by checking its database metadata and local file path.
+
+### 3. What I Saw When I Read My Parsed Pages
+
+**A page where heading metadata was extracted:**
+- Document: `project madurai pmuni0047 d9bdd85c`
+- Page: 1
+- Heading metadata:
+  - `naanmaNikkaTikai of viLampinaakanaar`
+  - `nAnmaNikkaTikai of viLampinAkanAr`
+
+Another example:
+- Document: `project madurai pmuni0048 c414893b`
+- Page: 1
+- Heading: `tirikaTukam of nallaatanaar`
+
+**Something that came out wrong:**
+- Document: `project madurai pmuni0057 b743c7f2`
+- Page: 68
+- Tamil poem content was readable, but structured heading metadata was empty (`[]`).
+- Heading metadata was empty across all 79 pages of this document.
+
+**A table:**
+- The parser comparison detected zero tables in all 10 inspected HTML files.
+- No actual HTML table was identified in the inspected source portions, so there was no table available to compare as a Markdown grid or loose text.
+
+### 4. My Parser Choice
+
+- For HTML, I prefer Trafilatura because it preserved readable Tamil content and extracted more characters in 7 out of 10 files.
+- Plain tag extraction was faster in all 10 files, but Trafilatura preserved useful content and structure in several inspected documents.
+- No PDFs were present in my current corpus, so I could not compare PyMuPDF and pypdf on actual PDF files.
+- PyMuPDF and pypdf were installed, but PDF parser selection remains unverified.
+- A kind of document neither parser handles perfectly: legacy HTML documents where section headings appear in the text but are not represented as structured heading metadata.
+
+### 5. One Thing That Went Wrong Today and How I Fixed It
+
+- The `scripts/compare_parsers.py` file was initially missing.
+- I created the script and ran it against the 10 largest HTML files.
+- It recorded extracted characters, heading counts, table counts and processing times for both parsers.
+
+### 6. Day 7 Verification Summary
+
+- Successfully parsed all 19 downloaded manifest file records.
+- Identified one additional GitHub repository-tree JSON document in the database.
+- Total parsed database documents: 20.
+- Recorded parse failures: 0.
+- Pages in the parsed corpus: 692.
+- Parsing coverage of manifest file records: 100%.
+- Confirmed parser idempotency.
+- Compared two HTML extraction approaches on 10 files.
+- Manually inspected 4 original HTML files and their parsed content.
+- Inspected samples from the remaining 6 files.
+- Verified that heading metadata can be empty for some legacy HTML documents.
+- No PDFs were available for PDF parser comparison.
+
+Day 7 parsing and verification are complete. The parser is idempotent, all manifest file records were parsed, and no parse failures were recorded. Trafilatura is the preferred HTML parser based on the content inspection and comparison results.

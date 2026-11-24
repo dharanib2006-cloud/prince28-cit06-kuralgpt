@@ -96,8 +96,8 @@ The dataset includes three Tamil commentary fields, exceeding the initial requir
 ### Generated measurements
 
 - Kural records detected: **1,330**
-- Files measured: **5**
-- Total downloaded size: **2.31 MB** (0.0023 GB)
+- Files measured: **20**
+- Total downloaded size: **4.24 MB** (0.0041 GB)
 - PDF files: **0**
 - PDF pages counted: **0**
 
@@ -108,5 +108,20 @@ The dataset includes three Tamil commentary fields, exceeding the initial requir
 | `data/raw/github-tk120404-thirukkural/github-tk120404-thirukkural-README-f0127575.md` | 4,655 | 0 | - |
 | `data/raw/github-tk120404-thirukkural/github-tk120404-thirukkural-thirukkural-03688010.json` | 2,349,854 | 0 | - |
 | `data/raw/github-tk120404-thirukkural-tree/github-tk120404-thirukkural-tree-master-c042b115.json` | 1,305 | 0 | - |
-| **Total** | **2,417,608** | **0** | - |
+| `data/raw/project_madurai/project_madurai-pmuni0002-291869e7.html` | 52,091 | 0 | - |
+| `data/raw/project_madurai/project_madurai-pmuni0016-e486fc8d.html` | 164,292 | 0 | - |
+| `data/raw/project_madurai/project_madurai-pmuni0022-93cb9d95.html` | 13,171 | 0 | - |
+| `data/raw/project_madurai/project_madurai-pmuni0024-01033a52.html` | 54,208 | 0 | - |
+| `data/raw/project_madurai/project_madurai-pmuni0025-48fe335a.html` | 70,488 | 0 | - |
+| `data/raw/project_madurai/project_madurai-pmuni0027-9125683b.html` | 93,419 | 0 | - |
+| `data/raw/project_madurai/project_madurai-pmuni0028-a852d112.html` | 204,029 | 0 | - |
+| `data/raw/project_madurai/project_madurai-pmuni0029-2c0dc8d0.html` | 100,027 | 0 | - |
+| `data/raw/project_madurai/project_madurai-pmuni0036-64d74aa8.html` | 183,340 | 0 | - |
+| `data/raw/project_madurai/project_madurai-pmuni0038-502711e7.html` | 232,222 | 0 | - |
+| `data/raw/project_madurai/project_madurai-pmuni0047-d9bdd85c.html` | 48,418 | 0 | - |
+| `data/raw/project_madurai/project_madurai-pmuni0048-c414893b.html` | 47,028 | 0 | - |
+| `data/raw/project_madurai/project_madurai-pmuni0055-869f5789.html` | 45,460 | 0 | - |
+| `data/raw/project_madurai/project_madurai-pmuni0056-ce4cfceb.html` | 72,778 | 0 | - |
+| `data/raw/project_madurai/project_madurai-pmuni0057-b743c7f2.html` | 648,456 | 0 | - |
+| **Total** | **4,447,035** | **0** | - |
 <!-- generated:end -->
