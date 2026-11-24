@@ -87,12 +87,12 @@ async def main(
     source_ids = {item["external_id"] for item in document_data}
 
     engine = get_engine()
-    inserted_or_updated = 0
+    inserted_count = 0
+    unchanged_count = 0
     pages_processed = 0
 
     try:
         async with engine.begin() as connection:
-            # Load existing IDs once, instead of querying each record.
             existing_result = await connection.execute(
                 select(
                     DOCUMENTS_TABLE.c.external_id,
@@ -139,7 +139,17 @@ async def main(
 
                 await connection.execute(page_statement)
 
-                inserted_or_updated += len(batch)
+                for item in batch:
+                    external_id = item["external_id"]
+
+                    if external_id in existing_hashes:
+                        if existing_hashes[external_id] == item["sha256"]:
+                            unchanged_count += 1
+                        else:
+                            inserted_count += 1
+                    else:
+                        inserted_count += 1
+
                 pages_processed += len(page_batch)
 
                 print(
@@ -168,7 +178,8 @@ async def main(
                     )
 
         print("\nDatabase loading completed!")
-        print(f"Records processed: {inserted_or_updated}")
+        print(f"Inserted: {inserted_count}")
+        print(f"Unchanged: {unchanged_count}")
         print(f"Pages processed: {pages_processed}")
         print(f"Previously existing records: {len(existing_hashes)}")
         print("Deleted: 0 (unless --prune was explicitly used)")
