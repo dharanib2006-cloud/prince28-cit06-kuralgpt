@@ -1,4 +1,4 @@
-"""Load Thirukkural records into PostgreSQL idempotently."""
+"""Bulk-load Thirukkural records into PostgreSQL."""
 
 import argparse
 import asyncio
@@ -17,6 +17,7 @@ DATA_FILE = PROJECT_ROOT / "data" / "sample_records.json"
 
 SOURCE_URL = "https://github.com/tk120404/thirukkural"
 SOURCE_LICENCE = "Apache-2.0"
+BATCH_SIZE = 100
 
 DOCUMENTS_TABLE = Document.__table__
 PAGES_TABLE = Page.__table__
@@ -69,66 +70,81 @@ def build_page(record: dict, document_id: int) -> dict:
     }
 
 
-async def main(prune: bool = False) -> None:
-    """Load records and optionally remove stale Thirukkural records."""
-    if not DATA_FILE.exists():
-        raise FileNotFoundError(f"Data file not found: {DATA_FILE}")
+async def main(
+    prune: bool = False,
+    input_file: Path = DATA_FILE,
+) -> None:
+    """Bulk-load records in batches."""
+    if not input_file.exists():
+        raise FileNotFoundError(f"Data file not found: {input_file}")
 
-    records = json.loads(DATA_FILE.read_text(encoding="utf-8"))
+    records = json.loads(input_file.read_text(encoding="utf-8"))
 
     if not isinstance(records, list) or not records:
-        raise ValueError("The sample data must contain a non-empty JSON list.")
+        raise ValueError("The input file must contain a non-empty JSON list.")
 
-    source_ids = {str(record["id"]) for record in records}
+    document_data = [build_document(record) for record in records]
+    source_ids = {item["external_id"] for item in document_data}
+
     engine = get_engine()
-
-    inserted = 0
-    updated = 0
-    unchanged = 0
-    deleted = 0
+    inserted_or_updated = 0
+    pages_processed = 0
 
     try:
         async with engine.begin() as connection:
-            for record in records:
-                document_data = build_document(record)
+            # Load existing IDs once, instead of querying each record.
+            existing_result = await connection.execute(
+                select(
+                    DOCUMENTS_TABLE.c.external_id,
+                    DOCUMENTS_TABLE.c.sha256,
+                ).where(DOCUMENTS_TABLE.c.external_id.in_(list(source_ids)))
+            )
+            existing_hashes = {row.external_id: row.sha256 for row in existing_result}
 
-                existing_result = await connection.execute(
-                    select(
-                        DOCUMENTS_TABLE.c.id,
-                        DOCUMENTS_TABLE.c.sha256,
-                    ).where(DOCUMENTS_TABLE.c.external_id == document_data["external_id"])
+            for start in range(0, len(document_data), BATCH_SIZE):
+                batch = document_data[start : start + BATCH_SIZE]
+
+                statement = insert(DOCUMENTS_TABLE).values(batch)
+
+                statement = statement.on_conflict_do_update(
+                    index_elements=[DOCUMENTS_TABLE.c.external_id],
+                    set_={
+                        key: getattr(statement.excluded, key)
+                        for key in batch[0]
+                        if key != "external_id"
+                    },
+                ).returning(
+                    DOCUMENTS_TABLE.c.id,
+                    DOCUMENTS_TABLE.c.external_id,
                 )
-                existing = existing_result.first()
 
-                if existing is None:
-                    result = await connection.execute(
-                        insert(DOCUMENTS_TABLE)
-                        .values(**document_data)
-                        .returning(DOCUMENTS_TABLE.c.id)
-                    )
-                    document_id = result.scalar_one()
-                    inserted += 1
-                else:
-                    document_id = existing.id
+                result = await connection.execute(statement)
+                document_ids = {row.external_id: row.id for row in result}
 
-                    if existing.sha256 != document_data["sha256"]:
-                        await connection.execute(
-                            DOCUMENTS_TABLE.update()
-                            .where(DOCUMENTS_TABLE.c.id == document_id)
-                            .values(**document_data)
-                        )
-                        updated += 1
-                    else:
-                        unchanged += 1
+                page_batch = []
 
-                page_data = build_page(record, document_id)
-                page_insert = insert(PAGES_TABLE).values(**page_data)
+                for record in records[start : start + BATCH_SIZE]:
+                    external_id = str(record["id"])
+                    page_batch.append(build_page(record, document_ids[external_id]))
 
-                await connection.execute(
-                    page_insert.on_conflict_do_update(
-                        constraint="uq_pages_document_id",
-                        set_={"text": page_insert.excluded.text},
-                    )
+                page_statement = insert(PAGES_TABLE).values(page_batch)
+
+                page_statement = page_statement.on_conflict_do_update(
+                    index_elements=[
+                        PAGES_TABLE.c.document_id,
+                        PAGES_TABLE.c.page_no,
+                    ],
+                    set_={"text": page_statement.excluded.text},
+                )
+
+                await connection.execute(page_statement)
+
+                inserted_or_updated += len(batch)
+                pages_processed += len(page_batch)
+
+                print(
+                    f"Processed {min(start + BATCH_SIZE, len(document_data))}"
+                    f"/{len(document_data)} records"
                 )
 
             if prune:
@@ -143,21 +159,19 @@ async def main(prune: bool = False) -> None:
                 stale_ids = existing_ids - source_ids
 
                 if stale_ids:
-                    result = await connection.execute(
+                    await connection.execute(
                         delete(DOCUMENTS_TABLE).where(
                             DOCUMENTS_TABLE.c.doc_type == "kural",
                             DOCUMENTS_TABLE.c.source_url == SOURCE_URL,
                             DOCUMENTS_TABLE.c.external_id.in_(stale_ids),
                         )
                     )
-                    deleted = result.rowcount or 0
 
         print("\nDatabase loading completed!")
-        print(f"Records: {len(records)}")
-        print(f"Inserted: {inserted}")
-        print(f"Updated: {updated}")
-        print(f"Unchanged: {unchanged}")
-        print(f"Deleted: {deleted}")
+        print(f"Records processed: {inserted_or_updated}")
+        print(f"Pages processed: {pages_processed}")
+        print(f"Previously existing records: {len(existing_hashes)}")
+        print("Deleted: 0 (unless --prune was explicitly used)")
 
     finally:
         await engine.dispose()
@@ -168,8 +182,14 @@ if __name__ == "__main__":
     parser.add_argument(
         "--prune",
         action="store_true",
-        help="Delete Thirukkural records absent from the JSON source file.",
+        help="Delete records absent from the input file.",
     )
-    args = parser.parse_args()
+    parser.add_argument(
+        "--input",
+        type=Path,
+        default=DATA_FILE,
+        help="Path to the JSON records file.",
+    )
 
-    asyncio.run(main(prune=args.prune))
+    args = parser.parse_args()
+    asyncio.run(main(prune=args.prune, input_file=args.input))
