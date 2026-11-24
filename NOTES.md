@@ -429,32 +429,84 @@ Measured on 20 November 2026, from PR merge to successful live smoke test for th
 - All three CD runs completed successfully.erification step in each deployment.
 - All three CD runs completed successfully.
 
-## D06 · Collecting the corpus
+## D06 - Collecting the Corpus
 
-- Start target: All 1,330 kurals with 2 commentaries
-- Collection method tested: Git repository (`tk120404/thirukkural`)
-- Repository commit: `cf3ff6c5a73c23b4092913156830457caab65fd4`
-- Matching JSON files: 2
+### 1. Start Target and Collection
 
-### Kill and resume
+- Start target: All 1,330 Kurals with at least 2 commentaries.
+- Collected today: **5 files, 0 PDF pages, 2.31 MB** (from `DATASET.md`).
+- Collection method used: Git repository downloader.
+- Repository: `tk120404/thirukkural`
+- Pinned commit: `cf3ff6c5a73c23b4092913156830457caab65fd4`
+- Main Kural JSON contains 1,330 records.
+- Commentary fields available:
+  - `mv`: 1,330 / 1,330
+  - `sp`: 1,330 / 1,330
+  - `mk`: 1,330 / 1,330
 
-- Run 1: Repository download completed 2 files before interruption could be tested.
-- Run 2: downloaded=0, skipped=2.
-- Run 3: downloaded=0, skipped=2.
-- `.part` file check after repository runs: No incomplete files found.
-- Manual Ctrl+C test: Interrupted a local 10 MB download after approximately 10 seconds.
-- Cleanup after interruption: No `.part` files remained.
-- Recovery test: Restarted the same command; completed=1, failed=0.
-- Final test file: `local-test-slow-file-6b4a4f88.txt` (10,485,760 bytes).
+### 2. Licence Check
+
+| Source | Licence or terms, in my words | May I show full text in answers? |
+|---|---|---|
+| `tk120404/thirukkural` | Repository includes an Apache-2.0 licence. The licence file was downloaded and inspected. | Not confirmed for all commentary fields; separate third-party rights verification is pending. |
+| CICT Thirukkural pages | Educational/non-commercial reproduction requires written permission and acknowledgement. | Not yet; written permission is pending. |
+| Project Madurai | Texts are described as free for non-commercial use with credit. Specific source terms must be checked before use. | Not yet; additional sources have not been collected or checked. |
+
+**Licence note:** A repository's Apache-2.0 licence does not automatically prove that every third-party commentary included in its dataset can be reused.
+
+### 3. robots.txt
+
+- The downloader checks `robots.txt` before fetching URLs.
+- Per-host request delay and a maximum concurrency of four are implemented.
+- The exact robots.txt response lines for the GitHub repository source were not recorded in my notes.
+- No blocked repository files were recorded during the successful download.
+- CICT robots.txt was checked for its Thirukkural paths; robots permission does not replace copyright permission.
+
+### 4. Kill and Resume
+
+- Repository download: 2 matching JSON files were downloaded successfully.
+- Subsequent repository runs: downloaded = 0, skipped = 2.
+- Manual interruption test: Started a local 10 MB download and pressed Ctrl+C after approximately 10 seconds.
+- Cleanup: No incomplete `.part` files remained after interruption.
+- Recovery: Restarted the same command; completed = 1, failed = 0.
+- Recovered test file size: 10,485,760 bytes.
 - Automated cancellation cleanup test: Passed.
 - Automated delete-and-redownload test: Passed.
 - Downloader unit tests: 23 passed.
 
+### 5. Capacity
 
-### Additional automated recovery tests
+Based on `DATASET.md` and `docs/CAPACITY.md`:
 
-- Interruption cleanup test: Passed.
-- Incomplete `.part` file is removed after cancellation.
-- Delete-and-redownload test: Passed.
-- Deleted completed files are downloaded again.
-- Downloader unit tests: 23 passed.
+- Current Kural records: 1,330.
+- Current downloaded files: 5.
+- Current downloaded size: 2.31 MB.
+- Current PDF pages: 0.
+- Current estimated tokens: 133,000 (planning assumption).
+- Current estimated chunks: 266 at 500 tokens per chunk.
+- Full corpus target: Approximately 3,000+ PDF pages.
+- Full-corpus token count and chunk count: Not measured because the additional PDFs have not yet been collected.
+- Vector dimensions: 1,024.
+- Estimated current raw vector storage: 1.04 MB.
+- Example embedding budget: $0.20 (approximately INR 19); actual provider cost must be checked before deployment.
+
+**The number that surprised me most:** The initial dataset already contains all 1,330 Kurals and three populated commentary fields. However, the downloaded corpus is only 2.31 MB and has no PDF pages yet.
+
+The main remaining challenge is collecting the additional Tamil literature and verifying reuse permissions for the commentary texts.
+
+### 6. One Thing That Went Wrong and How I Fixed It
+
+Initially, the Kural-counting report detected the wrong JSON file because the repository contained both a detail JSON file and the main Kural JSON file.
+
+I corrected the counting logic to select the main Thirukkural JSON file and exclude detail and tree files. The report then correctly detected all 1,330 Kurals.
+
+I also tested interrupted downloads and confirmed that incomplete `.part` files are cleaned up and downloads can resume successfully.
+
+### 7. Final Verification
+
+- Dataset report generated successfully.
+- `DATASET.md` and `docs/CAPACITY.md` updated.
+- Ruff lint: Passed.
+- Ruff formatting: Passed; 53 files already formatted.
+- Unit tests: 45 passed.
+- No test failures.
