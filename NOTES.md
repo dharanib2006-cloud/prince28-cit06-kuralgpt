@@ -1216,3 +1216,21 @@ The local implementation and automated tests are passing. The Render service is 
 
 ### D08 Outcome
 Completed the LLM gateway, provider fallback, streaming API, Neon usage logging, cost tracking, experiments and Render deployment. Live API testing was successful.
+
+## Stretch Task 1 - Latency Percentiles
+
+Calculated latency percentiles from Neon PostgreSQL
+using successful LLM calls (`status = 'ok'`).
+
+- p50 latency: 4,312 ms (4.312 seconds)
+- p95 latency: 36,432 ms (36.432 seconds)
+
+### Day 1 Performance Target
+- Target p95: under 6 seconds.
+- Actual p95: 36.432 seconds.
+- Status: Target not met.
+
+### Observation
+The median latency is 4.312 seconds, but the p95
+latency is significantly higher at 36.432 seconds.
+Further investigation and optimization are required.
