@@ -5,9 +5,10 @@ from unittest.mock import AsyncMock
 import pytest
 from fastapi.testclient import TestClient
 
-from kuralgpt.api.deps import get_db_session
+from kuralgpt.api.deps import get_db_session, get_gateway, get_usage_repository
 from kuralgpt.api.main import create_app
 from kuralgpt.config import Settings
+from kuralgpt.llm.gateway import LLMResult
 
 SAMPLE = [
     {
@@ -53,6 +54,55 @@ SAMPLE = [
         "published_on": "2025-01-01",
     },
 ]
+
+
+class FakeChatGateway:
+    """Fake gateway for chat API tests without network calls."""
+
+    async def generate(self, messages, **kwargs):
+        return LLMResult(
+            text="This is a test answer.",
+            provider="fake",
+            model="fake-1",
+            tokens_in=12,
+            tokens_out=8,
+            latency_ms=25,
+            attempts=1,
+            fallback_used=False,
+            cost_inr=0.01,
+        )
+
+    async def stream(self, messages, **kwargs):
+        yield "This is "
+        yield "a test answer."
+        yield LLMResult(
+            text="This is a test answer.",
+            provider="fake",
+            model="fake-1",
+            tokens_in=12,
+            tokens_out=8,
+            latency_ms=25,
+            attempts=1,
+            fallback_used=False,
+            cost_inr=0.01,
+        )
+
+
+class FakeUsageRepository:
+    """Fake daily usage records for API tests."""
+
+    async def by_day(self, days=7):
+        return [
+            {
+                "day": "2026-11-25",
+                "calls": 4,
+                "cost_inr": 0.05,
+                "errors": 1,
+                "fallbacks": 2,
+                "tokens_in": 500,
+                "tokens_out": 300,
+            }
+        ]
 
 
 @pytest.fixture
@@ -141,6 +191,8 @@ def client(data_file, monkeypatch):
     settings = Settings(app_env="ci", data_file=data_file)
     app = create_app(settings)
     app.dependency_overrides[get_db_session] = override_get_db_session
+    app.dependency_overrides[get_gateway] = lambda: FakeChatGateway()
+    app.dependency_overrides[get_usage_repository] = lambda: FakeUsageRepository()
 
     with TestClient(app) as test_client:
         yield test_client

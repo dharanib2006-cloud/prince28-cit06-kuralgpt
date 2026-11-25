@@ -17,6 +17,7 @@ COPY src ./src
 COPY migrations ./migrations
 COPY scripts ./scripts
 COPY data ./data
+COPY prompts ./prompts
 COPY alembic.ini ./
 
 RUN uv sync --frozen --no-dev
@@ -42,6 +43,7 @@ COPY --from=builder --chown=app:app /app/src /app/src
 COPY --from=builder --chown=app:app /app/migrations /app/migrations
 COPY --from=builder --chown=app:app /app/scripts /app/scripts
 COPY --from=builder --chown=app:app /app/data /app/data
+COPY --from=builder --chown=app:app /app/prompts /app/prompts
 COPY --from=builder --chown=app:app /app/alembic.ini /app/alembic.ini
 
 USER app
