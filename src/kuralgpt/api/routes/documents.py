@@ -5,8 +5,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from kuralgpt.api.deps import get_db_session
 from kuralgpt.api.errors import ApiError
-from kuralgpt.repository import get_document, list_documents
-from kuralgpt.schemas import DocumentListResponse, KuralRecord
+from kuralgpt.repository import (
+    get_document,
+    get_document_page,
+    list_documents,
+)
+from kuralgpt.schemas import DocumentListResponse, KuralRecord, PageResponse
 
 router = APIRouter(prefix="/v1/documents", tags=["documents"])
 
@@ -60,3 +64,21 @@ async def get_document_endpoint(
         )
 
     return record
+
+
+@router.get("/{document_id}/pages", response_model=PageResponse)
+async def get_document_page_endpoint(
+    document_id: str,
+    page_no: int = Query(..., ge=1),
+    session: AsyncSession = Depends(get_db_session),
+) -> dict:
+    page = await get_document_page(session, document_id, page_no)
+
+    if page is None:
+        raise ApiError(
+            status_code=404,
+            title="Not Found",
+            detail=f"No page {page_no} found for document ID '{document_id}'.",
+        )
+
+    return page

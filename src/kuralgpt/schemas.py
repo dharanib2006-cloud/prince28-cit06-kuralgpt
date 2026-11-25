@@ -26,3 +26,12 @@ class DocumentListResponse(BaseModel):
     limit: int
     offset: int
     items: list[KuralRecord]
+
+
+class PageResponse(BaseModel):
+    """Represent one parsed document page."""
+
+    document_id: str
+    page_no: int
+    text: str
+    headings: list[str]

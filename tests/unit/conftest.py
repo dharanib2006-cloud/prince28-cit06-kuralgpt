@@ -106,6 +106,16 @@ def client(data_file, monkeypatch):
             None,
         )
 
+    async def fake_get_document_page(session, document_id, page_no):
+        if document_id == "001" and page_no == 2:
+            return {
+                "document_id": document_id,
+                "page_no": page_no,
+                "text": "Sample page text for testing.",
+                "headings": ["Chapter 1", "Section 2"],
+            }
+        return None
+
     monkeypatch.setattr(
         "kuralgpt.api.routes.documents.list_documents",
         fake_list_documents,
@@ -113,6 +123,10 @@ def client(data_file, monkeypatch):
     monkeypatch.setattr(
         "kuralgpt.api.routes.documents.get_document",
         fake_get_document,
+    )
+    monkeypatch.setattr(
+        "kuralgpt.api.routes.documents.get_document_page",
+        fake_get_document_page,
     )
 
     mock_session = AsyncMock()
