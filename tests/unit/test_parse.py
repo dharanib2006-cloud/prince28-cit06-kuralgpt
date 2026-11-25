@@ -6,6 +6,7 @@ import pytest
 from kuralgpt.ingest.parse import (
     PAGE_SIZE,
     ParseError,
+    _looks_like_garbled_tamil,
     _remove_repeated_headers_footers,
     clean_text,
     extract_headings,
@@ -281,9 +282,10 @@ def test_parse_scanned_pdf_with_ocr(tmp_path, monkeypatch):
         def extractText(self):
             return "Recognized OCR text"
 
-    def fake_ocr(self, language, dpi):
+    def fake_ocr(self, language, dpi, full=False):
         assert language == "eng"
         assert dpi == 200
+        assert full is True
         return FakeTextPage()
 
     monkeypatch.setattr(
@@ -317,7 +319,7 @@ def test_parse_mixed_pdf_ocr_only_scanned_page(tmp_path, monkeypatch):
         def extractText(self):
             return "Scanned page OCR text"
 
-    def fake_ocr(self, language, dpi):
+    def fake_ocr(self, language, dpi, full=False):
         ocr_calls.append(language)
         return FakeTextPage()
 
@@ -343,7 +345,7 @@ def test_parse_pdf_ocr_failure_raises_parse_error(tmp_path, monkeypatch):
     document.save(path)
     document.close()
 
-    def fake_ocr(self, language, dpi):
+    def fake_ocr(self, language, dpi, full=False):
         raise RuntimeError("Tesseract unavailable")
 
     monkeypatch.setattr(
@@ -376,7 +378,6 @@ def test_parse_pdf_detects_scanned_pages_by_original_page_number(tmp_path):
         "This is the second normal text page with sufficient content.",
     )
 
-    # Page 3 contains no extractable text.
     document.new_page()
 
     document.save(path)
@@ -410,7 +411,7 @@ def test_scanned_page_detection_is_preserved_after_ocr(tmp_path, monkeypatch):
         def extractText(self):
             return "Recognized scanned page content."
 
-    def fake_ocr(self, language, dpi):
+    def fake_ocr(self, language, dpi, full=False):
         return FakeTextPage()
 
     monkeypatch.setattr(
@@ -424,3 +425,21 @@ def test_scanned_page_detection_is_preserved_after_ocr(tmp_path, monkeypatch):
     assert len(doc.pages) == 2
     assert "Recognized scanned page content." in doc.pages[1].text
     assert doc.scanned_pages == [2]
+
+
+def test_detects_garbled_tscii_tamil():
+    text = "«¢ÕÅûÙ÷ÇÂ§ÄØò¦¡õ¬ÀÃÓ¿ÉÁÌÈÆñÐÜö"
+
+    assert _looks_like_garbled_tamil(text) is True
+
+
+def test_preserves_readable_unicode_tamil():
+    text = "திருக்குறள் உலகப் பொதுமறை ஆகும்"
+
+    assert _looks_like_garbled_tamil(text) is False
+
+
+def test_does_not_detect_normal_english_as_garbled_tamil():
+    text = "This is a normal English document with sufficient content."
+
+    assert _looks_like_garbled_tamil(text) is False
