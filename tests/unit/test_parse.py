@@ -267,3 +267,93 @@ def test_parse_pdf_extracts_text_and_headings(tmp_path):
     assert len(doc.pages) == 1
     assert "Chapter One" in doc.pages[0].headings
     assert "PDF body content" in doc.pages[0].text
+
+
+def test_parse_scanned_pdf_with_ocr(tmp_path, monkeypatch):
+    path = tmp_path / "scanned.pdf"
+
+    document = pymupdf.open()
+    document.new_page()
+    document.save(path)
+    document.close()
+
+    class FakeTextPage:
+        def extractText(self):
+            return "Recognized OCR text"
+
+    def fake_ocr(self, language, dpi):
+        assert language == "eng"
+        assert dpi == 200
+        return FakeTextPage()
+
+    monkeypatch.setattr(
+        pymupdf.Page,
+        "get_textpage_ocr",
+        fake_ocr,
+    )
+
+    doc = parse_file(path, ocr_language="eng")
+
+    assert len(doc.pages) == 1
+    assert "Recognized OCR text" in doc.pages[0].text
+
+
+def test_parse_mixed_pdf_ocr_only_scanned_page(tmp_path, monkeypatch):
+    path = tmp_path / "mixed.pdf"
+
+    document = pymupdf.open()
+
+    text_page = document.new_page()
+    text_page.insert_text((72, 72), "Normal text page.")
+
+    document.new_page()
+
+    document.save(path)
+    document.close()
+
+    ocr_calls = []
+
+    class FakeTextPage:
+        def extractText(self):
+            return "Scanned page OCR text"
+
+    def fake_ocr(self, language, dpi):
+        ocr_calls.append(language)
+        return FakeTextPage()
+
+    monkeypatch.setattr(
+        pymupdf.Page,
+        "get_textpage_ocr",
+        fake_ocr,
+    )
+
+    doc = parse_file(path, ocr_language="eng")
+
+    assert len(doc.pages) == 2
+    assert "Normal text page." in doc.pages[0].text
+    assert "Scanned page OCR text" in doc.pages[1].text
+    assert ocr_calls == ["eng"]
+
+
+def test_parse_pdf_ocr_failure_raises_parse_error(tmp_path, monkeypatch):
+    path = tmp_path / "scanned.pdf"
+
+    document = pymupdf.open()
+    document.new_page()
+    document.save(path)
+    document.close()
+
+    def fake_ocr(self, language, dpi):
+        raise RuntimeError("Tesseract unavailable")
+
+    monkeypatch.setattr(
+        pymupdf.Page,
+        "get_textpage_ocr",
+        fake_ocr,
+    )
+
+    with pytest.raises(ParseError) as error:
+        parse_file(path, ocr_language="eng")
+
+    assert error.value.reason == "ocr_failed"
+    assert "Tesseract unavailable" in error.value.detail

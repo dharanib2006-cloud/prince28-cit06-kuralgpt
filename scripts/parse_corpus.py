@@ -45,6 +45,13 @@ def main():
         default=RAW_DIR,
         help="Directory to scan for files (default: data/raw).",
     )
+    parser.add_argument(
+        "--ocr",
+        type=str,
+        default=None,
+        help="OCR language(s) for scanned PDF pages, e.g. eng or eng+tam.",
+    )
+
     args = parser.parse_args()
 
     load_dotenv(ROOT / ".env")
@@ -108,7 +115,11 @@ def main():
                 print(f"\n[{index}/{len(files)}] Processing: {path.name}")
 
                 try:
-                    parsed = parse_file(path)
+                    parsed = parse_file(
+                        path,
+                        ocr_language=args.ocr,
+                    )
+
                     document = store_parsed_document(
                         session,
                         path,
