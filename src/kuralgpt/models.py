@@ -81,6 +81,12 @@ class Document(Base):
         Index("ix_documents_sha256", "sha256"),
         Index("ix_documents_doc_type", "doc_type"),
         Index("ix_documents_kural_no", "kural_no"),
+        Index(
+            "ix_documents_metadata_gin",
+            "metadata",
+            postgresql_using="gin",
+            postgresql_ops={"metadata": "jsonb_path_ops"},
+        ),
     )
 
 
@@ -98,9 +104,42 @@ class Page(Base):
     page_no: Mapped[int] = mapped_column(Integer, nullable=False)
     text: Mapped[str] = mapped_column(Text, nullable=False)
 
+    # The section path this page starts in, e.g. ["Fever", "Dengue"].
+    headings: Mapped[list[str]] = mapped_column(
+        JSONB,
+        nullable=False,
+        server_default="[]",
+    )
+
     document: Mapped[Document] = relationship(back_populates="pages")
 
     __table_args__ = (
         UniqueConstraint("document_id", "page_no"),
         CheckConstraint("page_no >= 1", name="page_no_positive"),
+    )
+
+
+class ParseFailure(Base):
+    """One row per raw file that could not be parsed, with the reason."""
+
+    __tablename__ = "parse_failures"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    path: Mapped[str] = mapped_column(Text, unique=True, nullable=False)
+    sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    source_url: Mapped[str | None] = mapped_column(Text)
+    reason: Mapped[str] = mapped_column(String(40), nullable=False, index=True)
+    detail: Mapped[str] = mapped_column(Text, nullable=False, server_default="")
+    attempts: Mapped[int] = mapped_column(Integer, nullable=False, server_default="1")
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
     )
