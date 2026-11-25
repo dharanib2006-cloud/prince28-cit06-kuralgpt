@@ -2,7 +2,10 @@
 
 import json
 import logging
+from contextvars import ContextVar
 from datetime import UTC, datetime
+
+request_id_ctx: ContextVar[str] = ContextVar("request_id", default="-")
 
 
 class JsonFormatter(logging.Formatter):
@@ -14,9 +17,10 @@ class JsonFormatter(logging.Formatter):
             "timestamp": datetime.now(UTC).isoformat(),
             "level": record.levelname,
             "msg": record.getMessage(),
+            "request_id": getattr(record, "request_id", request_id_ctx.get()),
         }
 
-        for key in ("request_id", "records", "path", "method", "duration_ms"):
+        for key in ("records", "path", "method", "duration_ms"):
             if hasattr(record, key):
                 log_data[key] = getattr(record, key)
 

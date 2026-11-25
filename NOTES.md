@@ -933,3 +933,243 @@ Another example:
 - No PDFs were available for PDF parser comparison.
 
 Day 7 parsing and verification are complete. The parser is idempotent, all manifest file records were parsed, and no parse failures were recorded. Trafilatura is the preferred HTML parser based on the content inspection and comparison results.
+
+# Day 8 – LLM Gateway, Streaming API and Usage Tracking
+
+## 1. LLM Provider Configuration
+
+- Configured Gemini as the primary LLM provider.
+- Configured Groq as the fallback provider.
+- Primary model: `gemini-3.6-flash`
+- Fallback model: `openai/gpt-oss-20b`
+- Used HTTPX to communicate with the providers.
+- Configured API keys through environment variables.
+- Tested both providers successfully using the LLM ping script.
+
+**Provider ping results:**
+
+| Provider | Model | Result | Response time |
+|---|---|---|---:|
+| Gemini | gemini-3.6-flash | Success | 1.826 s |
+| Groq | openai/gpt-oss-20b | Success | 0.919 s |
+
+**Observation:** Gemini 3.8 Flash timed out during testing, so Gemini 3.6 Flash was selected as the working primary model.
+
+## 2. Database Model and Migration
+
+- Created the `LlmCall` database model.
+- Added fields to track provider, model, request ID, prompt version, status, errors, input tokens, output tokens, latency, cost and fallback usage.
+- Created the Alembic migration for the `llm_calls` table.
+- Applied the migration successfully to Neon PostgreSQL.
+- Verified that the migration was applied using `alembic current`.
+
+**Observation:** LLM call information can now be stored and tracked in Neon PostgreSQL.
+
+## 3. LLM Gateway Implementation
+
+Implemented the LLM gateway with:
+
+- Gemini primary provider.
+- Groq fallback provider.
+- Retry handling.
+- Circuit breaker.
+- Streaming responses.
+- Token usage tracking.
+- Estimated rupee cost calculation.
+- Database logging of provider calls.
+- FakeLLM support for testing.
+
+**Observation:** The gateway can handle provider failures and switch to the fallback provider.
+
+## 4. Streaming Chat API
+
+Implemented the following API endpoints:
+
+- `POST /v1/chat` – accepts a user question and returns a streaming response.
+- `GET /v1/usage` – provides daily usage and cost summaries.
+- `GET /health` – checks application health.
+
+Created the system prompt in:
+
+`prompts/chat_system_v1.md`
+
+The prompt instructs KuralGPT to:
+
+- Help teachers explore Thirukkural.
+- Explain concepts in simple Tamil and English.
+- Avoid inventing Thirukkural couplets.
+- Admit uncertainty when information is unavailable.
+- Politely decline unrelated questions.
+
+Also created `scripts/ask.py` to test the chat gateway from the terminal.
+
+**Observation:** The streaming chat API and CLI were tested successfully.
+
+## 5. English vs Tamil Token Experiment
+
+Compared token usage using the same refund-related question in English and Tamil.
+
+| Test | Input tokens | Output tokens | Cost |
+|---|---:|---:|---:|
+| Baseline – Hi | 181 | 56 | ₹0.032846 |
+| English refund question | 189 | 27 | ₹0.023085 |
+| Tamil refund question | 197 | 18 | ₹0.020449 |
+
+**Message token calculation:**
+
+- English: 189 − 181 = 8 tokens
+- Tamil: 197 − 181 = 16 tokens
+- Tamil/English ratio: 16 ÷ 8 = 2×
+
+**Observation:** In this experiment, the Tamil message used twice as many input tokens as the English message. Both questions were correctly identified as outside KuralGPT's Thirukkural-focused scope.
+
+## 6. Uncertainty and Off-topic Tests
+
+### Board examination question
+
+**Question:** Which Thirukkural will be asked in this year's board exam?
+
+**Result:** KuralGPT admitted that it was not sure and advised checking the official syllabus and examination guidelines.
+
+### Off-topic question
+
+**Question:** Who won the 2011 Cricket World Cup?
+
+**Result:** KuralGPT declined politely because the question was outside its intended Thirukkural-focused scope.
+
+**Observation:** Both tests behaved as expected. The model avoided unsupported predictions and maintained its intended subject focus.
+
+## 7. Document-specific Hallucination Tests
+
+Tested questions whose answers were available in the Week 1 project documentation.
+
+| Question | Correct answer | KuralGPT response |
+|---|---|---|
+| How many records were available during the Week 1 readiness check? | 20 | I am not sure |
+| What is the live application URL of KuralGPT? | https://kuralgpt.onrender.com | I am not sure |
+| Which database was used for database integration? | PostgreSQL using Neon | I am not sure |
+| What was the main purpose of KuralGPT? | Help teachers find suitable Thirukkural couplets and explain them in Tamil and English without inventing couplets. | Correct answer |
+| How many checks passed in the Week 1 self-check? | 33/33 | I am not sure |
+
+**Observation:** The model did not have access to the project documentation through retrieval. It admitted uncertainty for most document-specific questions instead of inventing answers. One question was answered correctly through the fallback provider.
+
+### Invalid Kural number and hallucination prevention test
+
+**Question:** Give Thirukkural number 1345 about using mobile phones responsibly in school, with its Tamil text and English meaning.
+
+**Expected result:** KuralGPT should identify that Kural 1345 does not exist because the Thirukkural contains only 1,330 couplets. It should not invent Tamil text or an English translation.
+
+**Actual result:** KuralGPT correctly stated that number 1345 does not exist and explained that mobile phones are modern devices. It suggested authentic chapters related to self-control and education.
+
+- Provider: Gemini 3.6 Flash
+- Input tokens: 207
+- Output tokens: 122
+- Cost: ₹0.058211
+- Fallback: No
+
+**Conclusion:** No fabricated couplet or translation was produced. The invalid-number test passed. No actual hallucinated project-specific detail was captured during these tests.
+
+## 8. Fallback and Circuit Breaker Experiment
+
+### Provider fallback test
+
+- Temporarily configured an invalid Gemini model: `gemini-no-such-model`.
+- Gemini returned HTTP 404.
+- Groq (`openai/gpt-oss-20b`) successfully handled the requests.
+- Failed Gemini calls and successful Groq fallback calls were recorded separately in Neon.
+
+### Circuit breaker test
+
+- After three Gemini failures, the circuit breaker opened.
+- The fourth request skipped Gemini and went directly to Groq.
+- After the waiting period, the half-open test attempted Gemini again.
+- Gemini failed, and Groq handled the request.
+
+### Recovery test
+
+- Restored the primary model to `gemini-3.6-flash`.
+- Gemini successfully answered the next request.
+- `fallback_used` was `false`.
+
+**Observation:** Provider fallback, circuit breaker opening, half-open retry and recovery were successfully verified using the persistent API server.
+
+## 9. Local English and Tamil Response Tests
+
+| Question | Input tokens | Output tokens | Total response time | Cost |
+|---|---:|---:|---:|---:|
+| First Kural – English | 193 | 94 | 11.917 s | ₹0.047239 |
+| First Kural – Tamil | 195 | 121 | 11.104 s | ₹0.057000 |
+
+**Observation:** Both English and Tamil questions received responses from Gemini 3.6 Flash. These timings represent total CLI response time; first-token timing was not separately measured.
+
+## 10. Usage Report and Neon Verification
+
+**API endpoint:** `GET /v1/usage?days=7`
+
+Latest verified usage result:
+
+| Metric | Result |
+|---|---:|
+| Provider calls recorded | 30 |
+| Errors | 7 |
+| Fallback calls | 8 |
+| Input tokens | 4,755 |
+| Output tokens | 6,652 |
+| Estimated total cost | ₹0.7017 |
+
+**Neon database verification:**
+
+- Failed Gemini calls were recorded with `status = error`.
+- Successful Groq calls were recorded with `fallback_used = true`.
+- The recovered Gemini call was recorded with `status = ok` and `fallback_used = false`.
+
+**Observation:** The updated usage endpoint successfully summarizes provider calls, errors, fallbacks, token counts and estimated rupee costs from Neon.
+
+*Note: The cost is an estimated provider list-price calculation, not necessarily the actual amount billed.*
+
+## 11. Testing and Code Quality
+
+- Unit and integration tests completed.
+- Final test result: **107 passed, 1 warning**.
+- Ruff lint checks passed.
+- Ruff formatting checks passed.
+- Verified the real `/v1/usage` endpoint using Neon data.
+- Verified database logging and provider fallback records.
+
+**Final verification:**
+
+- `uv run poe test` – 107 passed.
+- `uv run poe lint` – All checks passed.
+- `uv run ruff format .` – 72 files already formatted after formatting.
+
+The remaining warning relates to optional PySocks support in urllib3 and did not affect the tests.
+
+## 12. Render Deployment Configuration
+
+- Opened the existing KuralGPT web service in Render.
+- Configured `GEMINI_API_KEY` and `GROQ_API_KEY` as environment variables.
+- Kept API keys outside the Git repository.
+- Updated the Dockerfile to copy the `prompts` directory into the container.
+- Render service currently shows **Live**.
+
+**Live application URL:** https://kuralgpt.onrender.com
+
+*Note: The service is Live, but the final public URL chat and usage endpoint verification is still pending.*
+
+## 13. One Thing That Went Wrong and How I Fixed It
+
+During testing, the Gemini 3.8 Flash model timed out. I tested Gemini 3.6 Flash and confirmed that it worked successfully, so I changed the primary model configuration.
+
+During the fallback experiment, Gemini returned HTTP 404 because I temporarily configured an invalid model name. The gateway successfully switched to Groq. I also verified that the circuit breaker stopped sending requests to Gemini after repeated failures.
+
+I restored Gemini 3.6 Flash after completing the experiment and confirmed that it responded successfully.
+
+## 14. Day 8 Conclusion
+
+Completed the LLM gateway with Gemini as the primary provider and Groq as the fallback provider. Implemented streaming chat, database logging, token and cost tracking, retry handling, circuit breaker and usage reporting.
+
+Tested English and Tamil questions, uncertainty handling, off-topic questions, invalid Kural numbers, provider fallback and circuit breaker behaviour.
+
+The local implementation and automated tests are passing, and the Render service is Live. Public endpoint verification and the next phase of document retrieval remain to be completed.
+
+**Next step:** Connect document retrieval so KuralGPT can answer questions using the actual project documents instead of relying only on the model's general knowledge.
