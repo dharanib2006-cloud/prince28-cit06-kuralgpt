@@ -275,3 +275,34 @@ def test_pool_status_is_logged_after_50_requests(monkeypatch):
         "Pool size: 5",
     )
     mock_engine.dispose.assert_awaited_once()
+
+
+def test_get_document_page_found(client):
+    response = client.get(
+        "/v1/documents/001/pages",
+        params={"page_no": 2},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "document_id": "001",
+        "page_no": 2,
+        "text": "Sample page text for testing.",
+        "headings": ["Chapter 1", "Section 2"],
+    }
+
+
+def test_missing_document_page_is_problem_details(client):
+    response = client.get(
+        "/v1/documents/999/pages",
+        params={"page_no": 2},
+    )
+
+    assert response.status_code == 404
+    assert response.headers["content-type"] == "application/problem+json"
+
+    body = response.json()
+
+    assert body["status"] == 404
+    assert body["title"] == "Not Found"
+    assert body["request_id"] == response.headers["X-Request-ID"]

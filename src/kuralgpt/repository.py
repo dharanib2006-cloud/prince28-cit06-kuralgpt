@@ -3,7 +3,7 @@ from typing import Any
 from sqlalchemy import String, cast, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from kuralgpt.models import Document
+from kuralgpt.models import Document, Page
 
 
 def document_to_record(document: Document) -> dict[str, Any]:
@@ -85,3 +85,30 @@ async def get_document(
     document = await session.scalar(stmt)
 
     return document_to_record(document) if document is not None else None
+
+
+async def get_document_page(
+    session: AsyncSession,
+    document_id: str,
+    page_no: int,
+) -> dict[str, Any] | None:
+    stmt = (
+        select(Page)
+        .join(Document)
+        .where(
+            Document.external_id == document_id,
+            Page.page_no == page_no,
+        )
+    )
+
+    page = await session.scalar(stmt)
+
+    if page is None:
+        return None
+
+    return {
+        "document_id": document_id,
+        "page_no": page.page_no,
+        "text": page.text,
+        "headings": page.headings,
+    }

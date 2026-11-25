@@ -4,7 +4,7 @@
 
 The initial KuralGPT corpus contains all 1,330 Thirukkural couplets authored by Thiruvalluvar.
 
-**Source repository:** https://github.com/tk120404/thirukkural
+**Source repository:** [https://github.com/tk120404/thirukkural](https://github.com/tk120404/thirukkural)
 
 **Pinned commit:** `cf3ff6c5a73c23b4092913156830457caab65fd4`
 
@@ -77,7 +77,7 @@ The repository README attributes the commentary fields as follows:
 ## 8. Known Gaps
 
 - Separate reuse permissions for the three modern commentary texts still need verification.
-- Project Madurai sources and additional Tamil classics have not yet been collected.
+- Additional Project Madurai sources and Tamil classics have not yet been collected.
 - The full corpus target is to include all available Thirukkural commentaries and five additional Tamil classics from Project Madurai, estimated at approximately 3,000+ pages.
 
 ## 9. Usage and Privacy
@@ -92,6 +92,10 @@ The initial target of all 1,330 Kurals has been achieved.
 
 The dataset includes three Tamil commentary fields, exceeding the initial requirement of two. The repository's Apache-2.0 licence file has been downloaded and inspected. Separate commentary rights verification remains open.
 
+The additional document parsing pipeline has also been implemented and tested. It supports HTML, JSON, Markdown, text and other supported file formats, with extracted page text and heading information stored in PostgreSQL.
+
+**Parsing coverage: 100% of files** (20 parsed, 0 failed).
+
 <!-- generated:start -->
 ### Generated measurements
 
@@ -100,6 +104,11 @@ The dataset includes three Tamil commentary fields, exceeding the initial requir
 - Total downloaded size: **4.24 MB** (0.0041 GB)
 - PDF files: **0**
 - PDF pages counted: **0**
+- Successfully parsed files: **20**
+- Failed files: **0**
+- File parsing coverage: **100.00%**
+- Successfully parsed pages: **692**
+- Page parsing coverage: **Not yet measured**
 
 | File | Size (bytes) | PDF pages | Notes |
 |---|---:|---:|---|
@@ -124,4 +133,5 @@ The dataset includes three Tamil commentary fields, exceeding the initial requir
 | `data/raw/project_madurai/project_madurai-pmuni0056-ce4cfceb.html` | 72,778 | 0 | - |
 | `data/raw/project_madurai/project_madurai-pmuni0057-b743c7f2.html` | 648,456 | 0 | - |
 | **Total** | **4,447,035** | **0** | - |
+
 <!-- generated:end -->
