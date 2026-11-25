@@ -23,6 +23,26 @@ PAGE_SIZE = 3000
 MIN_PAGE_TEXT_CHARS = 20
 
 
+def _looks_like_garbled_tamil(text: str) -> bool:
+    """Detect likely legacy TSCII Tamil text extracted incorrectly."""
+    text = text.strip()
+
+    if len(text) < MIN_PAGE_TEXT_CHARS:
+        return False
+
+    # Readable Unicode Tamil should always be preserved.
+    if any("\u0b80" <= char <= "\u0bff" for char in text):
+        return False
+
+    # Common characters appearing in the garbled TSCII extraction
+    # observed in the Thirukkural PDF.
+    tscii_markers = set("«¢ÕÅûÙ÷ÇÂ§ÄØò¦¡õ¬ÀÃÓ¿ÉÁÌÈÆñÐÜö")
+
+    marker_count = sum(char in tscii_markers for char in text)
+
+    return marker_count >= 3
+
+
 @dataclass
 class ParsedPage:
     """One extracted page of document text."""
@@ -309,24 +329,38 @@ def _parse_pdf_pages(
 
         pages = [_extract_pdf_page(page, index) for index, page in enumerate(document, start=1)]
 
-        # Detect scanned or low-text pages before OCR.
+        # Detect scanned or low-text pages before applying OCR.
         scanned_pages = [
             page.page_no for page in pages if len(clean_text(page.text)) < MIN_PAGE_TEXT_CHARS
         ]
 
-        # Explicit OCR: process only pages without extractable text.
+        # Explicit OCR: process blank pages and likely garbled
+        # legacy Tamil pages when Tamil OCR is requested.
         if ocr_language:
+            tamil_requested = any(
+                language.strip().lower() == "tam" for language in ocr_language.split("+")
+            )
+
             for index, pdf_page in enumerate(document):
                 parsed_page = pages[index]
+                extracted_text = parsed_page.text.strip()
 
-                if not parsed_page.text.strip():
+                needs_ocr = not extracted_text or (
+                    tamil_requested and _looks_like_garbled_tamil(extracted_text)
+                )
+
+                if needs_ocr:
                     try:
                         ocr_text = pdf_page.get_textpage_ocr(
                             language=ocr_language,
                             dpi=200,
+                            full=True,
                         ).extractText()
 
-                        parsed_page.text = clean_text(ocr_text)
+                        ocr_text = clean_text(ocr_text)
+
+                        if ocr_text:
+                            parsed_page.text = ocr_text
 
                     except Exception as exc:
                         raise ParseError(
