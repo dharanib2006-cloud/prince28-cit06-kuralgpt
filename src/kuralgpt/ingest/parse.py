@@ -291,7 +291,10 @@ def _extract_pdf_page(page, page_number: int) -> ParsedPage:
     )
 
 
-def _parse_pdf_pages(path: Path) -> tuple[list[ParsedPage], str]:
+def _parse_pdf_pages(
+    path: Path,
+    ocr_language: str | None = None,
+) -> tuple[list[ParsedPage], str]:
     """Extract PDF pages with PyMuPDF, using OCR when needed."""
     try:
         document = pymupdf.open(path)
@@ -304,24 +307,41 @@ def _parse_pdf_pages(path: Path) -> tuple[list[ParsedPage], str]:
 
         pages = [_extract_pdf_page(page, index) for index, page in enumerate(document, start=1)]
 
-        if not any(page.text for page in pages):
+        # Explicit OCR: process only pages without extractable text.
+        if ocr_language:
+            for index, pdf_page in enumerate(document):
+                parsed_page = pages[index]
+
+                if not parsed_page.text.strip():
+                    try:
+                        ocr_text = pdf_page.get_textpage_ocr(
+                            language=ocr_language,
+                            dpi=200,
+                        ).extractText()
+
+                        parsed_page.text = clean_text(ocr_text)
+
+                    except Exception as exc:
+                        raise ParseError(
+                            "ocr_failed",
+                            f"OCR failed on page {index + 1}. "
+                            "Check Tesseract installation and language data. "
+                            f"Details: {exc}",
+                        ) from exc
+
+        # Preserve the existing automatic OCR fallback.
+        elif not any(page.text for page in pages):
             try:
                 language = os.getenv("KURALGPT_OCR_LANG", "eng")
 
-                pages = [
-                    ParsedPage(
-                        page_no=index,
-                        text=clean_text(
-                            page.get_textpage_ocr(
-                                language=language,
-                                dpi=200,
-                            ).extractText()
-                        ),
-                        headings=[],
-                        tables=[],
-                    )
-                    for index, page in enumerate(document, start=1)
-                ]
+                for index, pdf_page in enumerate(document):
+                    ocr_text = pdf_page.get_textpage_ocr(
+                        language=language,
+                        dpi=200,
+                    ).extractText()
+
+                    pages[index].text = clean_text(ocr_text)
+
             except Exception as exc:
                 raise ParseError(
                     "no_text_layer",
@@ -454,7 +474,11 @@ def _parse_xml(path: Path) -> tuple[str, str]:
     return "\n".join(lines), "xml"
 
 
-def parse_file(path: Path, pdf_parser: str = "pymupdf") -> ParsedDoc:
+def parse_file(
+    path: Path,
+    pdf_parser: str = "pymupdf",
+    ocr_language: str | None = None,
+) -> ParsedDoc:
     """Parse a supported file into normalized, numbered pages."""
     path = Path(path)
 
@@ -467,7 +491,10 @@ def parse_file(path: Path, pdf_parser: str = "pymupdf") -> ParsedDoc:
     try:
         if suffix == ".pdf":
             if pdf_parser == "pymupdf":
-                pdf_pages, parser = _parse_pdf_pages(path)
+                pdf_pages, parser = _parse_pdf_pages(
+                    path,
+                    ocr_language=ocr_language,
+                )
                 kind = "pdf"
                 text = "\n\n".join(page.text for page in pdf_pages)
             else:
