@@ -20,6 +20,7 @@ import yaml
 from pypdf import PdfReader
 
 PAGE_SIZE = 3000
+MIN_PAGE_TEXT_CHARS = 20
 
 
 @dataclass
@@ -40,6 +41,7 @@ class ParsedDoc:
     kind: str
     title: str
     pages: list[ParsedPage]
+    scanned_pages: list[int] = field(default_factory=list)
 
 
 class ParseError(Exception):
@@ -294,8 +296,8 @@ def _extract_pdf_page(page, page_number: int) -> ParsedPage:
 def _parse_pdf_pages(
     path: Path,
     ocr_language: str | None = None,
-) -> tuple[list[ParsedPage], str]:
-    """Extract PDF pages with PyMuPDF, using OCR when needed."""
+) -> tuple[list[ParsedPage], str, list[int]]:
+    """Extract PDF pages and detect low-text pages before applying OCR."""
     try:
         document = pymupdf.open(path)
     except Exception as exc:
@@ -306,6 +308,11 @@ def _parse_pdf_pages(
             raise ParseError("encrypted", "PDF is password protected")
 
         pages = [_extract_pdf_page(page, index) for index, page in enumerate(document, start=1)]
+
+        # Detect scanned or low-text pages before OCR.
+        scanned_pages = [
+            page.page_no for page in pages if len(clean_text(page.text)) < MIN_PAGE_TEXT_CHARS
+        ]
 
         # Explicit OCR: process only pages without extractable text.
         if ocr_language:
@@ -359,13 +366,13 @@ def _parse_pdf_pages(
     for page, lines in zip(pages, cleaned_lines, strict=True):
         page.text = clean_text("\n".join(lines))
 
-    return pages, "pymupdf"
+    return pages, "pymupdf", scanned_pages
 
 
 def _parse_pdf(path: Path, pdf_parser: str) -> tuple[str, str]:
     """Extract PDF text using PyMuPDF or pypdf."""
     if pdf_parser == "pymupdf":
-        pages, parser = _parse_pdf_pages(path)
+        pages, parser, _ = _parse_pdf_pages(path)
         return "\n\n".join(page.text for page in pages), parser
 
     if pdf_parser == "pypdf":
@@ -487,11 +494,12 @@ def parse_file(
 
     suffix = path.suffix.lower()
     pdf_pages = None
+    scanned_pages = []
 
     try:
         if suffix == ".pdf":
             if pdf_parser == "pymupdf":
-                pdf_pages, parser = _parse_pdf_pages(
+                pdf_pages, parser, scanned_pages = _parse_pdf_pages(
                     path,
                     ocr_language=ocr_language,
                 )
@@ -559,4 +567,5 @@ def parse_file(
         kind=kind,
         title=_title(path),
         pages=pages,
+        scanned_pages=scanned_pages,
     )

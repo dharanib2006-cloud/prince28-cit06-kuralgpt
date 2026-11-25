@@ -357,3 +357,70 @@ def test_parse_pdf_ocr_failure_raises_parse_error(tmp_path, monkeypatch):
 
     assert error.value.reason == "ocr_failed"
     assert "Tesseract unavailable" in error.value.detail
+
+
+def test_parse_pdf_detects_scanned_pages_by_original_page_number(tmp_path):
+    path = tmp_path / "three_pages.pdf"
+
+    document = pymupdf.open()
+
+    page1 = document.new_page()
+    page1.insert_text(
+        (72, 72),
+        "This is the first normal text page with sufficient content.",
+    )
+
+    page2 = document.new_page()
+    page2.insert_text(
+        (72, 72),
+        "This is the second normal text page with sufficient content.",
+    )
+
+    # Page 3 contains no extractable text.
+    document.new_page()
+
+    document.save(path)
+    document.close()
+
+    doc = parse_file(path)
+
+    assert len(doc.pages) == 2
+    assert doc.scanned_pages == [3]
+    assert doc.pages[0].page_no == 1
+    assert doc.pages[1].page_no == 2
+
+
+def test_scanned_page_detection_is_preserved_after_ocr(tmp_path, monkeypatch):
+    path = tmp_path / "scanned_detection.pdf"
+
+    document = pymupdf.open()
+
+    page1 = document.new_page()
+    page1.insert_text(
+        (72, 72),
+        "This is a normal text page with sufficient content.",
+    )
+
+    document.new_page()
+
+    document.save(path)
+    document.close()
+
+    class FakeTextPage:
+        def extractText(self):
+            return "Recognized scanned page content."
+
+    def fake_ocr(self, language, dpi):
+        return FakeTextPage()
+
+    monkeypatch.setattr(
+        pymupdf.Page,
+        "get_textpage_ocr",
+        fake_ocr,
+    )
+
+    doc = parse_file(path, ocr_language="eng")
+
+    assert len(doc.pages) == 2
+    assert "Recognized scanned page content." in doc.pages[1].text
+    assert doc.scanned_pages == [2]

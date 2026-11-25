@@ -1,3 +1,4 @@
+import pymupdf
 from sqlalchemy import create_engine, func, select
 from sqlalchemy.orm import Session
 
@@ -91,5 +92,44 @@ def test_record_parse_failure_and_increment_attempts(clean_database, tmp_path):
 
             assert second.id == first.id
             assert second.attempts == 2
+    finally:
+        engine.dispose()
+
+
+def test_store_scanned_pages_in_document_metadata(clean_database, tmp_path):
+    path = tmp_path / "scanned_pages.pdf"
+
+    pdf = pymupdf.open()
+
+    page1 = pdf.new_page()
+    page1.insert_text(
+        (72, 72),
+        "This is the first normal text page with sufficient content.",
+    )
+
+    page2 = pdf.new_page()
+    page2.insert_text(
+        (72, 72),
+        "This is the second normal text page with sufficient content.",
+    )
+
+    # Third page has no extractable text.
+    pdf.new_page()
+
+    pdf.save(path)
+    pdf.close()
+
+    parsed = parse_file(path)
+
+    engine = create_engine(clean_database)
+    try:
+        with Session(engine) as session:
+            document = store_parsed_document(session, path, parsed)
+            session.commit()
+
+            saved_document = session.get(Document, document.id)
+
+            assert saved_document is not None
+            assert saved_document.metadata_["scanned_pages"] == [3]
     finally:
         engine.dispose()
