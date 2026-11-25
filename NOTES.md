@@ -1170,6 +1170,49 @@ Completed the LLM gateway with Gemini as the primary provider and Groq as the fa
 
 Tested English and Tamil questions, uncertainty handling, off-topic questions, invalid Kural numbers, provider fallback and circuit breaker behaviour.
 
-The local implementation and automated tests are passing, and the Render service is Live. Public endpoint verification and the next phase of document retrieval remain to be completed.
+The local implementation and automated tests are passing. The Render service is Live, and both public chat and usage endpoints have been successfully verified.
 
 **Next step:** Connect document retrieval so KuralGPT can answer questions using the actual project documents instead of relying only on the model's general knowledge.
+
+## D08 - Final Deployment and Live Testing
+
+### Deployment
+- Successfully deployed KuralGPT on Render.
+- Public URL: https://kuralgpt.onrender.com
+- Verified the `/v1/chat` and `/v1/usage` endpoints.
+- Connected the application to Neon PostgreSQL for LLM usage logging.
+
+### LLM Integration
+- Gemini configured as the primary provider.
+- Groq configured as the fallback provider.
+- Implemented streaming chat responses.
+- Implemented token usage and estimated cost tracking.
+- Tested fallback and circuit-breaker behaviour.
+
+### Live Chat Test
+- Question: "What is the first kural and what does it mean?"
+- Result: Successfully received Kural 1 with Tamil and English explanations.
+- Provider used: Groq (fallback).
+- Model: `openai/gpt-oss-20b`
+- Input tokens: 255
+- Output tokens: 961
+- Reported latency: 33,090 ms (33.09 seconds).
+- Estimated cost: INR 0.029205.
+- Fallback used: Yes.
+
+### Usage Verification
+- Total provider calls: 34
+- Input tokens: 5,265
+- Output tokens: 7,189
+- Estimated total cost: INR 0.720595.
+- Errors: 9
+- Fallbacks: 10
+
+### Observations
+- Public chat API and usage tracking are working.
+- Groq fallback successfully handled the live request.
+- Response latency needs further optimization.
+- Retrieval integration and document-grounded answers are planned for Week 3.
+
+### D08 Outcome
+Completed the LLM gateway, provider fallback, streaming API, Neon usage logging, cost tracking, experiments and Render deployment. Live API testing was successful.
