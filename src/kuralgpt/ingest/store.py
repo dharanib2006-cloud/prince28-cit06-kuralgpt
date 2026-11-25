@@ -42,6 +42,7 @@ def store_parsed_document(
         "parser": parsed.parser,
         "pages": len(parsed.pages),
         "tables": sum(len(page.tables) for page in parsed.pages),
+        "scanned_pages": parsed.scanned_pages,
     }
 
     if document is None:
