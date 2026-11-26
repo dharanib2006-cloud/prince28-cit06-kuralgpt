@@ -1,7 +1,6 @@
-"""Tests for the chat and usage API endpoints."""
-
 from pathlib import Path
 
+from kuralgpt.api.deps import get_gateway
 from kuralgpt.api.routes.chat import load_prompt
 
 
@@ -87,3 +86,46 @@ def test_usage_rejects_invalid_days(client):
     response = client.get("/v1/usage?days=100")
 
     assert response.status_code == 422
+
+
+def test_llm_status_returns_providers_and_breaker_states(client):
+    response = client.get("/v1/llm/status")
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data == {
+        "providers": [
+            {
+                "name": "gemini",
+                "model": "gemini-test",
+                "breaker_state": "closed",
+            },
+            {
+                "name": "groq",
+                "model": "groq-test",
+                "breaker_state": "closed",
+            },
+        ]
+    }
+
+
+def test_llm_status_reflects_breaker_state_changes(client):
+    gateway = client.app.dependency_overrides[get_gateway]()
+
+    gateway.breakers["gemini"].failure()
+    gateway.breakers["gemini"].failure()
+    gateway.breakers["gemini"].failure()
+
+    response = client.get("/v1/llm/status")
+
+    assert response.status_code == 200
+    assert response.json()["providers"][0]["breaker_state"] == "open"
+
+    gateway.breakers["gemini"]._opened_at -= gateway.breakers["gemini"].cooldown
+
+    response = client.get("/v1/llm/status")
+
+    assert response.status_code == 200
+    assert response.json()["providers"][0]["breaker_state"] == "half-open"

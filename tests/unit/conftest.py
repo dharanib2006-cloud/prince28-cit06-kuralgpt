@@ -8,7 +8,7 @@ from fastapi.testclient import TestClient
 from kuralgpt.api.deps import get_db_session, get_gateway, get_usage_repository
 from kuralgpt.api.main import create_app
 from kuralgpt.config import Settings
-from kuralgpt.llm.gateway import LLMResult
+from kuralgpt.llm.gateway import CircuitBreaker, FakeLLM, LLMResult
 
 SAMPLE = [
     {
@@ -57,7 +57,14 @@ SAMPLE = [
 
 
 class FakeChatGateway:
-    """Fake gateway for chat API tests without network calls."""
+    """Fake gateway for chat and LLM status API tests."""
+
+    def __init__(self):
+        self.providers = [
+            FakeLLM(name="gemini", model="gemini-test"),
+            FakeLLM(name="groq", model="groq-test"),
+        ]
+        self.breakers = {provider.name: CircuitBreaker() for provider in self.providers}
 
     async def generate(self, messages, **kwargs):
         return LLMResult(
@@ -190,8 +197,12 @@ def client(data_file, monkeypatch):
 
     settings = Settings(app_env="ci", data_file=data_file)
     app = create_app(settings)
+
+    fake_gateway = FakeChatGateway()
+    app.state.llm_gateway = fake_gateway
+
     app.dependency_overrides[get_db_session] = override_get_db_session
-    app.dependency_overrides[get_gateway] = lambda: FakeChatGateway()
+    app.dependency_overrides[get_gateway] = lambda: fake_gateway
     app.dependency_overrides[get_usage_repository] = lambda: FakeUsageRepository()
 
     with TestClient(app) as test_client:
