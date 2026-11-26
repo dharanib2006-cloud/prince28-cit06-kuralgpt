@@ -1266,3 +1266,124 @@ Tested using the local API with an intentionally invalid Gemini model and Groq a
 The status endpoint successfully displayed the circuit-breaker transitions. Groq continued serving requests when Gemini failed. The failed half-open recovery attempt correctly returned Gemini's breaker to the open state.
 
 The original Gemini model configuration was restored after testing.
+
+## Stretch Task 4 - Short Conversation Memory
+
+### Implementation
+Updated `ChatRequest` to support an optional `history` list.
+
+- Each history message contains `role` and `content`.
+- Allowed roles: `user` and `assistant`.
+- Maximum history: 6 earlier messages.
+- Each message content is limited to 4,000 characters.
+- Conversation history is inserted between the system prompt and the latest user message.
+- Existing streaming and non-streaming behavior is preserved.
+
+### Automated Tests
+Added tests to verify:
+- History is passed in the correct order.
+- Empty history is accepted.
+- Six history messages are accepted.
+- More than six messages are rejected.
+- Invalid history roles are rejected.
+
+Targeted chat API tests: 14 passed.
+Lint and formatting checks: Passed.
+
+### Live Conversation Experiment
+
+Asked the first question:
+"Explain Thirukkural 1."
+
+Then asked the follow-up:
+"And for children?"
+
+The previous user and assistant messages were included in the second request.
+
+| Metric | First request | Follow-up |
+|---|---:|---:|
+| Provider | Gemini | Groq |
+| Input tokens | 187 | 970 |
+| Output tokens | 136 | 199 |
+| Latency | 7,188 ms | 5,344 ms |
+| Fallback used | No | Yes |
+
+### Observations
+- Input tokens increased from 187 to 970.
+- The increase of 783 tokens confirms that conversation history was included.
+- Gemini failed during the follow-up request, and Groq successfully handled the fallback.
+- Tamil text appeared incorrectly encoded in the displayed response and requires separate investigation.
+
+### Result
+The optional short conversation memory feature was successfully implemented and verified through a live API experiment.
+
+## Stretch Task 3 - Local Ollama Model
+
+### Installation and Configuration
+
+Installed Ollama on Windows and downloaded the `llama3.2:1b` model (approximately 1.3 GB).
+
+Verified that the Ollama API was running successfully at:
+
+`http://localhost:11434`
+
+Updated the `.env` configuration to use Ollama as the fallback provider:
+
+- `LLM_FALLBACK_BASE_URL=http://localhost:11434/v1`
+- `LLM_FALLBACK_MODEL=llama3.2:1b`
+- `GROQ_API_KEY=ollama`
+
+No Python code changes were required.
+
+### Direct Ollama Test
+
+Sent a test question:
+
+"Explain Thirukkural in one simple sentence."
+
+Result:
+- Model: `llama3.2:1b`
+- Input tokens: 37
+- Output tokens: 43
+- Total tokens: 80
+
+Ollama successfully generated a response.
+
+### KuralGPT Fallback Test
+
+Temporarily configured an invalid Gemini model to trigger fallback.
+
+KuralGPT successfully switched to the local Ollama model.
+
+Observed results:
+- Configured provider name: `groq`
+- Actual model: `llama3.2:1b`
+- Input tokens: 209
+- Output tokens: 6
+- Latency: 8,188 ms
+- Fallback used: True
+- Estimated cost: INR 0
+
+The model returned "I am not sure."
+
+This confirmed that KuralGPT successfully connected to Ollama through its OpenAI-compatible API.
+
+### Gemini Comparison
+
+After restoring the Gemini configuration, another request was attempted.
+
+Gemini returned HTTP 429 because the available API quota was exceeded. KuralGPT successfully used Ollama as the fallback again.
+
+A fair live speed and answer-quality comparison with Gemini could not be completed because of this quota limitation.
+
+### Observations
+
+- Local Ollama installation and model loading were successful.
+- KuralGPT automatically switched to Ollama when Gemini failed.
+- The local model generated responses without an external API usage charge.
+- The tested answer quality was limited and requires further evaluation.
+- Gemini comparison remains pending until API quota becomes available.
+
+### Result
+
+Local Ollama integration and automatic fallback were successfully verified without Python code changes.

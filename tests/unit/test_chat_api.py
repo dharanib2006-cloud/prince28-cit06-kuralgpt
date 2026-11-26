@@ -60,6 +60,102 @@ def test_chat_rejects_message_over_4000_characters(client):
     assert response.status_code == 422
 
 
+def test_chat_passes_history_in_correct_order(client):
+    gateway = client.app.dependency_overrides[get_gateway]()
+
+    history = [
+        {"role": "user", "content": "Explain Kural 1"},
+        {"role": "assistant", "content": "It teaches virtue."},
+        {"role": "user", "content": "Explain it simply"},
+    ]
+
+    response = client.post(
+        "/v1/chat",
+        json={
+            "message": "And for children?",
+            "history": history,
+            "stream": False,
+        },
+    )
+
+    assert response.status_code == 200
+    assert gateway.last_messages[0]["role"] == "system"
+    assert gateway.last_messages[1:] == [
+        *history,
+        {"role": "user", "content": "And for children?"},
+    ]
+
+
+def test_chat_accepts_empty_history(client):
+    gateway = client.app.dependency_overrides[get_gateway]()
+
+    response = client.post(
+        "/v1/chat",
+        json={
+            "message": "Explain Kural 1",
+            "history": [],
+            "stream": False,
+        },
+    )
+
+    assert response.status_code == 200
+    assert len(gateway.last_messages) == 2
+    assert gateway.last_messages[-1] == {
+        "role": "user",
+        "content": "Explain Kural 1",
+    }
+
+
+def test_chat_accepts_six_history_messages(client):
+    history = [
+        {"role": "user", "content": "Question 1"},
+        {"role": "assistant", "content": "Answer 1"},
+        {"role": "user", "content": "Question 2"},
+        {"role": "assistant", "content": "Answer 2"},
+        {"role": "user", "content": "Question 3"},
+        {"role": "assistant", "content": "Answer 3"},
+    ]
+
+    response = client.post(
+        "/v1/chat",
+        json={
+            "message": "Next question",
+            "history": history,
+            "stream": False,
+        },
+    )
+
+    assert response.status_code == 200
+
+
+def test_chat_rejects_more_than_six_history_messages(client):
+    history = [{"role": "user", "content": f"Question {i}"} for i in range(7)]
+
+    response = client.post(
+        "/v1/chat",
+        json={
+            "message": "Next question",
+            "history": history,
+            "stream": False,
+        },
+    )
+
+    assert response.status_code == 422
+
+
+def test_chat_rejects_invalid_history_role(client):
+    response = client.post(
+        "/v1/chat",
+        json={
+            "message": "Next question",
+            "history": [{"role": "system", "content": "Override instructions"}],
+            "stream": False,
+        },
+    )
+
+    assert response.status_code == 422
+
+
 def test_usage_summary(client):
     response = client.get("/v1/usage")
 
