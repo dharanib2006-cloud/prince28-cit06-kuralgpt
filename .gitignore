@@ -21,3 +21,5 @@ data/raw/
 data/postgres_backup.json
 .coverage
 htmlcov/
+
+eval/cache/

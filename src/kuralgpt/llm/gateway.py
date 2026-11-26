@@ -119,17 +119,23 @@ class OpenAICompatProvider:
         messages: list[Message],
         temperature: float,
         stream: bool,
+        response_format: dict | None = None,
     ) -> dict:
         body = {
             "model": self.model,
             "messages": messages,
             "temperature": temperature,
         }
+
+        if response_format is not None:
+            body["response_format"] = response_format
+
         if stream:
             body |= {
                 "stream": True,
                 "stream_options": {"include_usage": True},
             }
+
         return body
 
     @staticmethod
@@ -137,6 +143,7 @@ class OpenAICompatProvider:
         code = response.status_code
         retry_after = response.headers.get("retry-after", "")
         wait = float(retry_after) if retry_after.replace(".", "", 1).isdigit() else None
+
         return LLMError(
             f"HTTP {code}: {response.text[:200]}",
             retryable=code in {408, 429} or code >= 500,
@@ -146,6 +153,7 @@ class OpenAICompatProvider:
     @staticmethod
     def _network_error(exc: httpx.TransportError) -> LLMError:
         timed_out = isinstance(exc, httpx.TimeoutException)
+
         return LLMError(
             type(exc).__name__,
             retryable=not timed_out,
@@ -156,8 +164,14 @@ class OpenAICompatProvider:
         messages: list[Message],
         *,
         temperature: float = 0.2,
+        response_format: dict | None = None,
     ) -> Reply:
-        body = self._body(messages, temperature, stream=False)
+        body = self._body(
+            messages,
+            temperature,
+            stream=False,
+            response_format=response_format,
+        )
 
         try:
             response = await self._client.post(
@@ -193,9 +207,15 @@ class OpenAICompatProvider:
         usage: Reply,
         *,
         temperature: float = 0.2,
+        response_format: dict | None = None,
     ) -> AsyncIterator[str]:
         """Yield response pieces and capture final token usage."""
-        body = self._body(messages, temperature, stream=True)
+        body = self._body(
+            messages,
+            temperature,
+            stream=True,
+            response_format=response_format,
+        )
 
         try:
             async with self._client.stream(
@@ -272,8 +292,10 @@ class FakeLLM:
         messages: list[Message],
         *,
         temperature: float = 0.2,
+        response_format: dict | None = None,
     ) -> Reply:
         item = self._next()
+
         if isinstance(item, Exception):
             raise item
 
@@ -289,6 +311,7 @@ class FakeLLM:
         usage: Reply,
         *,
         temperature: float = 0.2,
+        response_format: dict | None = None,
     ) -> AsyncIterator[str]:
         item = self._next()
 
@@ -342,6 +365,7 @@ class CircuitBreaker:
 
     def failure(self) -> None:
         self.failures += 1
+
         if self.failures >= self.threshold:
             self._opened_at = self._clock()
 
@@ -495,12 +519,14 @@ class LLMGateway:
                     attempt,
                     index,
                 )
+
                 await self._record(
                     provider,
                     purpose,
                     prompt_version,
                     **self._fields(result),
                 )
+
                 return result
 
             breaker.failure()

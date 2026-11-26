@@ -1,8 +1,10 @@
 """Unit tests for the LLM gateway."""
 
 import asyncio
+import json
 from unittest.mock import AsyncMock
 
+import httpx
 import pytest
 
 from kuralgpt.llm.gateway import (
@@ -12,6 +14,7 @@ from kuralgpt.llm.gateway import (
     LLMGateway,
     LLMResult,
     LLMUnavailable,
+    OpenAICompatProvider,
     Reply,
     cost_inr,
     estimate_tokens,
@@ -294,3 +297,41 @@ def test_recorder_failure_does_not_break_gateway():
 
     assert result.text == "Still works"
     recorder.assert_awaited_once()
+
+
+def test_provider_generate_includes_response_format():
+    response_format = {"type": "json_object"}
+    captured = {}
+
+    def handler(request):
+        captured.update(json.loads(request.content))
+        return httpx.Response(
+            200,
+            json={
+                "choices": [{"message": {"content": '{"label": "docs"}'}}],
+                "usage": {
+                    "prompt_tokens": 10,
+                    "completion_tokens": 5,
+                },
+            },
+        )
+
+    async def run():
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            provider = OpenAICompatProvider(
+                name="test",
+                base_url="https://example.com/v1",
+                api_key="test-key",  # pragma: allowlist secret
+                model="test-model",
+                client=client,
+            )
+
+            return await provider.generate(
+                MESSAGES,
+                response_format=response_format,
+            )
+
+    result = asyncio.run(run())
+
+    assert result.text == '{"label": "docs"}'
+    assert captured["response_format"] == response_format
