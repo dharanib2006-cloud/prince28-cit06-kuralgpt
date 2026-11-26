@@ -1216,3 +1216,53 @@ The local implementation and automated tests are passing. The Render service is 
 
 ### D08 Outcome
 Completed the LLM gateway, provider fallback, streaming API, Neon usage logging, cost tracking, experiments and Render deployment. Live API testing was successful.
+
+## Stretch Task 1 - Latency Percentiles
+
+Calculated latency percentiles from Neon PostgreSQL
+using successful LLM calls (`status = 'ok'`).
+
+- p50 latency: 4,312 ms (4.312 seconds)
+- p95 latency: 36,432 ms (36.432 seconds)
+
+### Day 1 Performance Target
+- Target p95: under 6 seconds.
+- Actual p95: 36.432 seconds.
+- Status: Target not met.
+
+### Observation
+The median latency is 4.312 seconds, but the p95
+latency is significantly higher at 36.432 seconds.
+Further investigation and optimization are required.
+
+## Stretch Task 2 - LLM Provider Status and Circuit Breaker
+
+### API Endpoint
+Added `GET /v1/llm/status` to display each configured LLM provider's:
+- Provider name
+- Model name
+- Circuit-breaker state
+
+### Automated Tests
+Added two unit tests using `FakeLLM`:
+- Verify provider details and initial breaker states.
+- Verify that the API reflects circuit-breaker state changes.
+
+Both tests passed.
+
+### Live Circuit Breaker Experiment
+
+Tested using the local API with an intentionally invalid Gemini model and Groq as fallback.
+
+| Experiment | Observed result |
+|---|---|
+| Initial state | Gemini: closed; Groq: closed |
+| After three Gemini failures | Gemini: open; Groq: closed |
+| After 30-second cooldown | Gemini: half-open; Groq: closed |
+| Recovery attempt with invalid Gemini model | Gemini failed; Groq handled the request |
+| Immediate status check | Gemini: open; Groq: closed |
+
+### Result
+The status endpoint successfully displayed the circuit-breaker transitions. Groq continued serving requests when Gemini failed. The failed half-open recovery attempt correctly returned Gemini's breaker to the open state.
+
+The original Gemini model configuration was restored after testing.

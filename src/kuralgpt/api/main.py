@@ -12,7 +12,7 @@ from kuralgpt.api.errors import (
     validation_error_handler,
 )
 from kuralgpt.api.middleware import RequestContextMiddleware
-from kuralgpt.api.routes import chat, documents, health, stats
+from kuralgpt.api.routes import chat, documents, health, llm, stats
 from kuralgpt.api.routes.chat import load_prompt
 from kuralgpt.config import Settings, get_settings
 from kuralgpt.db.session import get_engine
@@ -88,5 +88,5 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(documents.router)
     app.include_router(stats.router)
     app.include_router(chat.router, prefix="/v1")
-
+    app.include_router(llm.router)
     return app
