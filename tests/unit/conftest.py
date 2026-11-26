@@ -65,8 +65,10 @@ class FakeChatGateway:
             FakeLLM(name="groq", model="groq-test"),
         ]
         self.breakers = {provider.name: CircuitBreaker() for provider in self.providers}
+        self.last_messages = None
 
     async def generate(self, messages, **kwargs):
+        self.last_messages = messages
         return LLMResult(
             text="This is a test answer.",
             provider="fake",
@@ -80,6 +82,7 @@ class FakeChatGateway:
         )
 
     async def stream(self, messages, **kwargs):
+        self.last_messages = messages
         yield "This is "
         yield "a test answer."
         yield LLMResult(

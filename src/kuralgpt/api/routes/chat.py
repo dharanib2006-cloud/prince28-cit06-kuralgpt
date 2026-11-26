@@ -4,7 +4,7 @@ import json
 from collections.abc import AsyncIterator
 from dataclasses import asdict
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
@@ -23,9 +23,15 @@ def load_prompt(directory: Path, name: str = PROMPT_VERSION) -> str:
     return (directory / f"{name}.md").read_text(encoding="utf-8").strip()
 
 
+class HistoryMessage(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str = Field(min_length=1, max_length=4000)
+
+
 class ChatRequest(BaseModel):
     message: str = Field(min_length=1, max_length=4000)
     stream: bool = True
+    history: list[HistoryMessage] = Field(default_factory=list, max_length=6)
 
 
 def sse(data: dict, event: str = "") -> str:
@@ -47,6 +53,7 @@ async def chat(
 ):
     messages = [
         {"role": "system", "content": request.app.state.system_prompt},
+        *[item.model_dump() for item in body.history],
         {"role": "user", "content": body.message},
     ]
 
