@@ -10,7 +10,7 @@ from fastapi import Depends, HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import aliased, selectinload
 
 from kuralgpt.config import Settings, get_settings
 from kuralgpt.db.ingest_jobs import create_job
@@ -73,13 +73,29 @@ class IngestRepository:
         return set(result.all())
 
     async def failed_records(self, limit: int = 2000) -> list[dict]:
-        """Return records belonging to failed ingestion items."""
+        """Return only the latest failed attempt for each source path."""
+        later_item = aliased(IngestItem)
+
+        later_attempt_exists = (
+            select(later_item.id)
+            .where(
+                later_item.record["path"].as_string() == IngestItem.record["path"].as_string(),
+                later_item.id > IngestItem.id,
+            )
+            .exists()
+        )
+
         statement = (
             select(IngestItem)
-            .where(IngestItem.status == "failed")
-            .order_by(IngestItem.updated_at)
+            .where(
+                IngestItem.status == "failed",
+                IngestItem.record["path"].as_string().is_not(None),
+                ~later_attempt_exists,
+            )
+            .order_by(IngestItem.id.desc())
             .limit(limit)
         )
+
         result = await self.session.scalars(statement)
         return [item.record for item in result.all()]
 

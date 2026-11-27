@@ -44,11 +44,15 @@ services:
       context: .
       network: host
     command: uvicorn kuralgpt.api.main:create_app --factory --host 0.0.0.0 --port 8000
-    environment:
+    environment: &app-env
       APP_ENV: local
       DATABASE_URL: postgresql://app:app@db:5432/app  # pragma: allowlist secret
+      REDIS_URL: redis://redis:6379
+    env_file: &keys
+      - path: .env
+        required: false
     ports:
-      - "8000:8000"
+      - "8002:8000"
     depends_on:
       db:
         condition: service_healthy
@@ -70,5 +74,23 @@ services:
       retries: 5
       start_period: 10s
 
+  worker:
+    build:
+      context: .
+      network: host
+    command: ["arq", "kuralgpt.workers.main.WorkerSettings"]
+    environment: *app-env
+    env_file: *keys
+    volumes:
+      - ./data/raw:/app/data/raw:ro
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      disable: true
 volumes:
   pgdata:
