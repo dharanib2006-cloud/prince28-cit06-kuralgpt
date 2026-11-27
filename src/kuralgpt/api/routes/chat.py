@@ -11,11 +11,18 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from kuralgpt.api.deps import GatewayDep, UsageDep
+from kuralgpt.llm.classify import classify
 from kuralgpt.llm.gateway import LLMResult, LLMUnavailable
 
 router = APIRouter(tags=["chat"])
 
 PROMPT_VERSION = "chat_system_v1"
+CLASSIFY_PROMPT_VERSION = "classify_v4"
+
+PERSONAL_ANSWER = "I can't know that."
+OFF_TOPIC_ANSWER = (
+    "I can only help with questions about Thirukkural, Tamil classics, and their use in teaching."
+)
 
 
 def load_prompt(directory: Path, name: str = PROMPT_VERSION) -> str:
@@ -51,13 +58,42 @@ async def chat(
     request: Request,
     gateway: GatewayDep,
 ):
-    messages = [
-        {"role": "system", "content": request.app.state.system_prompt},
-        *[item.model_dump() for item in body.history],
-        {"role": "user", "content": body.message},
-    ]
-
     try:
+        label, classification_result = await classify(
+            gateway,
+            request.app.state.classify_prompt,
+            CLASSIFY_PROMPT_VERSION,
+            body.message,
+        )
+
+        if label in {"personal", "off_topic"}:
+            answer = PERSONAL_ANSWER if label == "personal" else OFF_TOPIC_ANSWER
+
+            if not body.stream:
+                return {
+                    "answer": answer,
+                    **summary(classification_result),
+                }
+
+            async def fixed_events() -> AsyncIterator[str]:
+                yield sse({"delta": answer})
+                yield sse(summary(classification_result), event="done")
+
+            return StreamingResponse(
+                fixed_events(),
+                media_type="text/event-stream",
+                headers={
+                    "Cache-Control": "no-cache",
+                    "X-Accel-Buffering": "no",
+                },
+            )
+
+        messages = [
+            {"role": "system", "content": request.app.state.system_prompt},
+            *[item.model_dump() for item in body.history],
+            {"role": "user", "content": body.message},
+        ]
+
         if not body.stream:
             result = await gateway.generate(
                 messages,
@@ -92,15 +128,13 @@ async def chat(
         except LLMUnavailable as exc:
             yield sse({"detail": str(exc)}, event="error")
 
-    headers = {
-        "Cache-Control": "no-cache",
-        "X-Accel-Buffering": "no",
-    }
-
     return StreamingResponse(
         events(),
         media_type="text/event-stream",
-        headers=headers,
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
     )
 
 
@@ -119,5 +153,8 @@ async def usage(
         "fallbacks": sum(row["fallbacks"] for row in rows),
         "tokens_in": sum(row["tokens_in"] for row in rows),
         "tokens_out": sum(row["tokens_out"] for row in rows),
-        "total_cost_inr": round(sum(row["cost_inr"] for row in rows), 4),
+        "total_cost_inr": round(
+            sum(row["cost_inr"] for row in rows),
+            4,
+        ),
     }

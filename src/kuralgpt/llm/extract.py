@@ -128,10 +128,23 @@ async def extract(
     document_text: str,
     document_title: str | None = None,
     max_attempts: int = 3,
+    use_schema: bool = False,
 ) -> Extraction:
     """Extract document metadata, retrying invalid JSON or metadata."""
     if max_attempts < 1:
         raise ValueError("max_attempts must be at least 1.")
+
+    response_format = {"type": "json_object"}
+
+    if use_schema:
+        response_format = {
+            "type": "json_schema",
+            "json_schema": {
+                "name": "doc_meta",
+                "strict": True,
+                "schema": DocMeta.model_json_schema(),
+            },
+        }
 
     last_error = None
     last_result = None
@@ -147,13 +160,17 @@ async def extract(
             purpose="extract",
             prompt_version=version,
             temperature=0,
-            response_format={"type": "json_object"},
+            response_format=response_format,
         )
 
         last_result = result
 
         try:
             metadata = parse_metadata(result.text)
+
+            # Reject a year that does not appear in the document.
+            if metadata.year is not None and str(metadata.year) not in document_text:
+                raise ValueError(f"year {metadata.year} is not in the document")
 
             return Extraction(
                 metadata=metadata,

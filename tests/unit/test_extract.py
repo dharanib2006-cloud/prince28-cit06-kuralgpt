@@ -102,7 +102,7 @@ async def test_extract_retries_and_succeeds():
         gateway=gateway,
         prompt="Extract metadata.",
         version="v1",
-        document_text="Sample document.",
+        document_text="Sample document from 2023.",
         max_attempts=3,
     )
 
@@ -179,3 +179,52 @@ def test_parse_metadata_rejects_duplicate_normalized_keys():
 
     with pytest.raises(ValueError, match="Duplicate field"):
         parse_metadata(json.dumps(data))
+
+
+@pytest.mark.asyncio
+async def test_extract_sends_json_schema_when_enabled():
+    gateway = SimpleNamespace(
+        generate=AsyncMock(return_value=make_result(json.dumps(VALID_METADATA)))
+    )
+
+    result = await extract(
+        gateway=gateway,
+        prompt="Extract metadata.",
+        version="v6",
+        document_text="Sample document from 2023.",
+        use_schema=True,
+    )
+
+    assert result.metadata is not None
+    assert result.attempts == 1
+
+    call_kwargs = gateway.generate.await_args.kwargs
+    response_format = call_kwargs["response_format"]
+
+    assert response_format["type"] == "json_schema"
+    assert response_format["json_schema"]["name"] == "doc_meta"
+    assert response_format["json_schema"]["strict"] is True
+    assert response_format["json_schema"]["schema"] == DocMeta.model_json_schema()
+
+
+@pytest.mark.asyncio
+async def test_extract_rejects_year_not_in_document():
+    invented_metadata = VALID_METADATA.copy()
+    invented_metadata["year"] = 2025
+
+    gateway = SimpleNamespace(
+        generate=AsyncMock(return_value=make_result(json.dumps(invented_metadata)))
+    )
+
+    result = await extract(
+        gateway=gateway,
+        prompt="Extract metadata.",
+        version="v1",
+        document_text="Sample document from 2023.",
+        max_attempts=1,
+    )
+
+    assert result.metadata is None
+    assert result.error == "year 2025 is not in the document"
+    assert result.attempts == 1
+    assert gateway.generate.await_count == 1

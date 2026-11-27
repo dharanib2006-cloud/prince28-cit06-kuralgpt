@@ -2,6 +2,7 @@ from pathlib import Path
 
 from kuralgpt.api.deps import get_gateway
 from kuralgpt.api.routes.chat import load_prompt
+from kuralgpt.llm.gateway import FakeLLM, LLMGateway
 
 
 def test_load_prompt():
@@ -225,3 +226,41 @@ def test_llm_status_reflects_breaker_state_changes(client):
 
     assert response.status_code == 200
     assert response.json()["providers"][0]["breaker_state"] == "half-open"
+
+
+def test_personal_question_does_not_call_answer_model(client):
+    provider = FakeLLM(script=["personal"])
+    gateway = LLMGateway([provider])
+
+    client.app.dependency_overrides[get_gateway] = lambda: gateway
+
+    response = client.post(
+        "/v1/chat",
+        json={
+            "message": "What did I do yesterday?",
+            "stream": False,
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["answer"] == "I can't know that."
+    assert provider.calls == 1
+
+
+def test_off_topic_question_does_not_call_answer_model(client):
+    provider = FakeLLM(script=["off_topic"])
+    gateway = LLMGateway([provider])
+
+    client.app.dependency_overrides[get_gateway] = lambda: gateway
+
+    response = client.post(
+        "/v1/chat",
+        json={
+            "message": "Who directed Baahubali?",
+            "stream": False,
+        },
+    )
+
+    assert response.status_code == 200
+    assert "Thirukkural" in response.json()["answer"]
+    assert provider.calls == 1
