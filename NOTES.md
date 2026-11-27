@@ -1411,17 +1411,29 @@ Comparison run: 2026-11-26T18:54+05:30
 
 ### My contract (DocMeta)
 
-- Fields I kept from my project card: doc_kind, year, language, summary and topics.
-- Fields I deleted, and why they make no sense per document: Verify against the original project card.
-- The field I tightened, and how: Added Pydantic Literal types, length limits and validation constraints.
+- Fields retained from the project specification: `doc_kind`, `year`, `language`, `summary`, and `topics`.
+- KuralGPT-specific fields added: `kural_no`, `adhikaram`, `paal`, and `theme` to support Thirukkural document filtering.
+- Fields restricted: `doc_kind`, `language`, and `paal` use `Literal` values to allow only predefined categories.
+- Validation improvements: String length limits, list-size limits, year range (1950–2027), non-empty topics, and removal of duplicate topics.
+- Extra fields are rejected using Pydantic's `extra="forbid"` configuration.
 
 ### Extraction run
 
-- Prompt version: extract_v5 · documents: 13 ok, 0 repaired, 0 failed (of 1350 parsed).
-- Not finished? Yes. 37 more successful documents are required to reach the 50-document minimum.
-- Most common failure reason, and what I did about it: Gemini HTTP 429 quota errors; Groq fallback successfully processed the documents.
+- Prompt version: `v5`
+- New documents successfully extracted: **50 across four batches**
+- Repaired: 0
+- Failed: 0 recorded in the completed extraction results.
+- Initially pending documents: 1,337
+- Remaining successful extractions required to reach the 50-document target: 0.
+- Extraction completed across four batches. The script was manually interrupted after successful records had been committed.
+- Most common issue: Gemini HTTP 429 quota errors. The Groq fallback (`openai/gpt-oss-20b`) successfully processed the affected documents.
 - A record that was valid but wrong: Not yet identified; semantic validation is pending.
-- Cost at list price: Total and per-document cost to be confirmed using /v1/usage.
+- Total recorded v5 extraction calls: **103**
+- Total recorded v5 extraction cost: **₹1.740614**
+- Total input tokens: **60,709**
+- Total output tokens: **45,897**
+- Note: The recorded v5 cost includes earlier v5 test calls and is not isolated to the 50 new documents.
+
 
 ### One thing that went wrong today, and how I fixed it
 
