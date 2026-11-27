@@ -7,7 +7,7 @@ from kuralgpt.models import Document, Page
 
 
 def document_to_record(document: Document) -> dict[str, Any]:
-    record = dict(document.metadata_)
+    record = dict(document.metadata_ or {})
     record["id"] = document.external_id
     return record
 
@@ -23,21 +23,48 @@ async def list_documents(
     language: str | None = None,
     commentator: str | None = None,
     sort: str = "id",
+    doc_kind: str | None = None,
 ) -> tuple[list[dict[str, Any]], int]:
     filters = []
     metadata = Document.metadata_
 
+    # Filter extracted documents by their document kind.
+    if doc_kind:
+        filters.append(metadata["doc_kind"].as_string() == doc_kind)
+
+    # Support both legacy Kural records and extracted metadata.
     if kural_no is not None:
-        filters.append(Document.kural_no == kural_no)
+        filters.append(
+            or_(
+                Document.kural_no == kural_no,
+                metadata["kural_no"].contains([str(kural_no)]),
+                metadata["kural_no"].as_string() == str(kural_no),
+            )
+        )
 
     if paal:
-        filters.append(metadata["paal"].as_string() == paal)
+        filters.append(
+            or_(
+                metadata["paal"].as_string() == paal,
+                metadata["paal"].contains([paal]),
+            )
+        )
 
     if adhikaram:
-        filters.append(metadata["adhikaram"].as_string() == adhikaram)
+        filters.append(
+            or_(
+                metadata["adhikaram"].as_string() == adhikaram,
+                metadata["adhikaram"].contains([adhikaram]),
+            )
+        )
 
     if language:
-        filters.append(metadata["languages"].contains([language]))
+        filters.append(
+            or_(
+                metadata["languages"].contains([language]),
+                metadata["language"].as_string() == language,
+            )
+        )
 
     if commentator:
         filters.append(metadata["commentator"].as_string() == commentator)
@@ -53,6 +80,8 @@ async def list_documents(
             metadata["adhikaram"].as_string(),
             metadata["paal"].as_string(),
             metadata["theme"].as_string(),
+            metadata["summary"].as_string(),
+            metadata["topics"].as_string(),
         ]
         filters.append(or_(*[cast(field, String).ilike(term) for field in fields]))
 
