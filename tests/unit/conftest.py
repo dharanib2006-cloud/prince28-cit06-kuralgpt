@@ -137,8 +137,11 @@ def client(data_file, monkeypatch):
         language=None,
         commentator=None,
         sort="id",
+        doc_kind=None,
     ):
         records = SAMPLE.copy()
+        if doc_kind:
+            records = [r for r in records if r.get("doc_kind") == doc_kind]
 
         if kural_no is not None:
             records = [r for r in records if r["kural_no"] == kural_no]

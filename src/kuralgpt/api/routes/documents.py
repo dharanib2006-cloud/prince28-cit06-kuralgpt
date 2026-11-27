@@ -26,6 +26,7 @@ async def list_documents_endpoint(
     language: str | None = Query(default=None),
     commentator: str | None = Query(default=None),
     sort: Literal["id", "title", "-published_on"] = Query(default="id"),
+    doc_kind: str | None = Query(default=None),
     session: AsyncSession = Depends(get_db_session),
 ) -> dict:
     records, total = await list_documents(
@@ -39,6 +40,7 @@ async def list_documents_endpoint(
         language,
         commentator,
         sort,
+        doc_kind,
     )
 
     return {
