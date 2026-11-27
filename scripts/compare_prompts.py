@@ -18,6 +18,9 @@ CACHE_DIR = ROOT / "eval" / "cache"
 NOTES_FILE = ROOT / "NOTES.md"
 DELAY_SECONDS = 5
 
+LABELS = ("docs", "personal", "off_topic")
+PREDICTED_LABELS = (*LABELS, "invalid")
+
 
 def load_testset() -> list[dict]:
     """Load the evaluation questions."""
@@ -25,13 +28,18 @@ def load_testset() -> list[dict]:
     for line_number, line in enumerate(TESTSET.read_text(encoding="utf-8").splitlines(), start=1):
         if not line.strip():
             continue
+
         row = json.loads(line)
-        if row.get("label") not in ("docs", "personal", "off_topic"):
+
+        if row.get("label") not in LABELS:
             raise ValueError(f"Invalid label on testset line {line_number}")
+
         if not isinstance(row.get("question"), str):
             raise ValueError(f"Missing question on testset line {line_number}")
+
         row["line"] = len(rows) + 1
         rows.append(row)
+
     return rows
 
 
@@ -46,8 +54,10 @@ def append_notes(section: str) -> None:
     """Append or replace only this script's section in NOTES.md."""
     existing = NOTES_FILE.read_text(encoding="utf-8") if NOTES_FILE.exists() else ""
     marker = "## Day 9 — Prompt comparison"
+
     if marker in existing:
         existing = existing.split(marker, 1)[0].rstrip()
+
     NOTES_FILE.write_text(
         existing.rstrip() + "\n\n" + marker + "\n\n" + section.strip() + "\n",
         encoding="utf-8",
@@ -57,6 +67,7 @@ def append_notes(section: str) -> None:
 async def main() -> None:
     settings = get_settings()
     versions = list_prompt_versions("classify")
+
     if not versions:
         raise FileNotFoundError("No classify_v*.md prompt files were found.")
 
@@ -89,6 +100,7 @@ async def main() -> None:
                 print(f"CACHE {version} | question {row['line']}")
             else:
                 elapsed = time.monotonic() - last_call
+
                 if last_call and elapsed < DELAY_SECONDS:
                     await asyncio.sleep(DELAY_SECONDS - elapsed)
 
@@ -118,6 +130,18 @@ async def main() -> None:
         accuracy = correct / len(rows) if rows else 0.0
         misses = [item for item in predictions if item["got"] != item["label"]]
 
+        # Count predictions grouped by actual label and predicted label.
+        confusion = {
+            true_label: {
+                predicted_label: sum(
+                    item["label"] == true_label and item["got"] == predicted_label
+                    for item in predictions
+                )
+                for predicted_label in PREDICTED_LABELS
+            }
+            for true_label in LABELS
+        }
+
         results.append(
             {
                 "version": version,
@@ -125,18 +149,38 @@ async def main() -> None:
                 "total": len(rows),
                 "accuracy": accuracy,
                 "misses": misses,
+                "confusion": confusion,
             }
         )
 
         print(f"\n{version}: {correct}/{len(rows)} ({accuracy:.1%}) — {len(misses)} incorrect\n")
 
+        # Display classification breakdown for this prompt version.
+        print(f"CLASSIFICATION BREAKDOWN - {version}")
+        print("| True label | docs | personal | off_topic | invalid |")
+        print("|---|---:|---:|---:|---:|")
+
+        for true_label in LABELS:
+            counts = confusion[true_label]
+            print(
+                f"| {true_label} | "
+                f"{counts['docs']} | "
+                f"{counts['personal']} | "
+                f"{counts['off_topic']} | "
+                f"{counts['invalid']} |"
+            )
+
+        print()
+
         leaks = find_leaks(prompt, [item["question"] for item in rows])
+
         if leaks:
             print(f"LEAK {version}: {leaks}")
 
     print("\nPROMPT COMPARISON")
     print("| Version | Correct | Accuracy |")
     print("|---|---:|---:|")
+
     for result in results:
         print(
             f"| {result['version']} | "
@@ -166,14 +210,40 @@ async def main() -> None:
             f"**Best version:** {best['version']} "
             f"({best['correct']}/{best['total']}, {best['accuracy']:.1%}).",
             "",
-            "### Incorrect predictions",
+            "### Classification breakdown",
         ]
     )
 
+    # Save the classification breakdown for every prompt version.
+    for result in results:
+        notes.extend(
+            [
+                "",
+                f"**{result['version']}**",
+                "",
+                "| True label | docs | personal | off_topic | invalid |",
+                "|---|---:|---:|---:|---:|",
+            ]
+        )
+
+        for true_label in LABELS:
+            counts = result["confusion"][true_label]
+            notes.append(
+                f"| {true_label} | "
+                f"{counts['docs']} | "
+                f"{counts['personal']} | "
+                f"{counts['off_topic']} | "
+                f"{counts['invalid']} |"
+            )
+
+    notes.extend(["", "### Incorrect predictions"])
+
     for result in results:
         notes.extend(["", f"**{result['version']}**"])
+
         if not result["misses"]:
             notes.append("- No incorrect predictions.")
+
         for item in result["misses"]:
             notes.append(
                 f"- Test question {item['line']}: expected "
@@ -188,6 +258,7 @@ async def main() -> None:
             "### Best-version errors to review",
         ]
     )
+
     if best["misses"]:
         for item in best["misses"]:
             notes.append(

@@ -31,6 +31,7 @@ async def run(
     max_attempts: int = 3,
     document_id: int | None = None,
     retry_failed: bool = False,
+    use_schema: bool = False,
 ) -> None:
     """Extract metadata from pending documents with API pacing."""
     if rpm < 1:
@@ -65,6 +66,7 @@ async def run(
         document_ids = pending(version, limit)
 
     print(f"Prompt version: {version}")
+    print(f"Schema mode: {'enabled' if use_schema else 'disabled'}")
     print(f"Selected documents: {len(document_ids)}")
 
     if not document_ids:
@@ -127,6 +129,7 @@ async def run(
                 document_text=text,
                 document_title=document.title,
                 max_attempts=max_attempts,
+                use_schema=use_schema,
             )
 
             save(document_id, result, version)
@@ -191,6 +194,11 @@ def main() -> None:
     parser.add_argument("--max-attempts", type=int, default=3)
     parser.add_argument("--document-id", type=int, default=None)
     parser.add_argument("--retry-failed", action="store_true")
+    parser.add_argument(
+        "--schema",
+        action="store_true",
+        help="Use JSON Schema response format instead of JSON object mode.",
+    )
 
     args = parser.parse_args()
 
@@ -205,6 +213,7 @@ def main() -> None:
             rpm=args.rpm,
             max_chars=args.max_chars,
             max_attempts=args.max_attempts,
+            use_schema=args.schema,
         )
     )
 

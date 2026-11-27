@@ -36,6 +36,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             settings.prompts_dir,
             "chat_system_v1",
         )
+
+        app.state.classify_prompt = load_prompt(
+            settings.prompts_dir,
+            "classify_v4",
+        )
+
         app.state.llm_gateway = create_gateway(settings)
 
         logger.info(
@@ -89,4 +95,5 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(stats.router)
     app.include_router(chat.router, prefix="/v1")
     app.include_router(llm.router)
+
     return app
