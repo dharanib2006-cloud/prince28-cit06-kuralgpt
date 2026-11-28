@@ -1,6 +1,5 @@
 """Application configuration and environment settings."""
 
-import os
 from functools import lru_cache
 from pathlib import Path
 
