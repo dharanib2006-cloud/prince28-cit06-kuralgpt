@@ -35,13 +35,22 @@ def test_health_includes_git_sha(monkeypatch):
     }
 
 
-def test_settings_uses_render_git_commit_as_default(monkeypatch):
-    monkeypatch.delenv("GIT_SHA", raising=False)
+def test_settings_prefers_render_git_commit_over_image_default(monkeypatch):
+    monkeypatch.setenv("GIT_SHA", "dev")
     monkeypatch.setenv("RENDER_GIT_COMMIT", "render-commit-456")
 
     settings = Settings(_env_file=None, app_env="ci")
 
     assert settings.git_sha == "render-commit-456"
+
+
+def test_settings_uses_git_sha_when_render_commit_is_absent(monkeypatch):
+    monkeypatch.delenv("RENDER_GIT_COMMIT", raising=False)
+    monkeypatch.setenv("GIT_SHA", "ci-commit-789")
+
+    settings = Settings(_env_file=None, app_env="ci")
+
+    assert settings.git_sha == "ci-commit-789"
 
 
 def test_ready_when_at_least_20_records_are_loaded(tmp_path):

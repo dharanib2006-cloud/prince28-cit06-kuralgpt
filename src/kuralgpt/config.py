@@ -1,10 +1,9 @@
 """Application configuration and environment settings."""
 
-import os
 from functools import lru_cache
 from pathlib import Path
 
-from pydantic import Field
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -21,7 +20,10 @@ class Settings(BaseSettings):
     app_env: str = Field(pattern="^(local|ci|production)$")
 
     # CI images set GIT_SHA; Git-backed Render services expose RENDER_GIT_COMMIT.
-    git_sha: str = Field(default_factory=lambda: os.getenv("RENDER_GIT_COMMIT", "dev"))
+    git_sha: str = Field(
+        default="dev",
+        validation_alias=AliasChoices("RENDER_GIT_COMMIT", "GIT_SHA"),
+    )
 
     # LLM gateway (Day 8). Keys default to empty so tests and CI never need them.
     gemini_api_key: str = ""
