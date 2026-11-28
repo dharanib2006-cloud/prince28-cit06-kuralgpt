@@ -137,17 +137,23 @@ class FakeIngestRepository:
         return set()
 
     async def failed_records(self, limit=2000, source=""):
-        records = self.records
-        if source:
-            source = source.casefold()
-            records = [
-                record
-                for record in records
-                if source in " ".join(
-                    str(record.get(field, "")) for field in ("path", "url", "source")
-                ).casefold()
-            ]
-        return records[:limit]
+        records = []
+        source_filter = source.casefold()
+
+        for record in self.records:
+            combined = " ".join(
+                str(record.get(field, "")) for field in ("path", "url", "source")
+            ).casefold()
+
+            if source_filter and source_filter not in combined:
+                continue
+
+            records.append(record)
+
+            if len(records) >= limit:
+                break
+
+        return records
 
     async def create(self, records):
         self.created_records = records
