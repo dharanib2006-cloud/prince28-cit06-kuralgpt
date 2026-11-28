@@ -1587,10 +1587,25 @@ The document store uses a deterministic external ID based on the resolved file p
 
 ### 7. Live Ingestion
 
-- Render service: Previously reported as Live.
-- Five-document ingestion test on Render: Not performed during this exercise.
-- Unauthorized ingestion request: Not independently tested in this exercise.
-- Live ingestion counts: Pending verification.
+- Date: 28 November 2026.
+- Render API: `https://kuralgpt.onrender.com`.
+- First live job: `b997e7226367435faf248890391f5efa`.
+- Documents queued: 5.
+- First-run result: 4 completed, 0 skipped, 1 failed; queue drained to 0 queued and 0 running.
+- Completed on the first run:
+  - Project Madurai `pmuni0002.html`: 6 pages.
+  - GitHub `README.md`: 2 pages.
+  - GitHub `detail.json`: 8 pages.
+  - GitHub `thirukkural.json`: 421 pages.
+- Initial failure: GitHub `LICENSE`, 4 pages parsed; metadata extraction failed because Gemini's circuit was open and Groq returned HTTP 429 for its 8,000 tokens-per-minute limit.
+- The first live submission returned HTTP 401 because the local admin token did not match Render. After correcting the local configuration, the job was accepted.
+- Dead-letter inspection returned 13 historical failed items, including the one failure from this job and older failures. The previously known Project Madurai `pmuni0036.html` metadata-validation failure remains unresolved.
+- Retry job: `8b66b01736234e4380c6affce0b2af29`.
+- Retried only the latest failed source using `--limit 1 --retry-failed`. Result: 1 queued, 1 completed, 0 skipped, 0 failed.
+- The retried `LICENSE` source completed successfully after the provider rate-limit window cleared.
+- Final live-test outcome: all 5 distinct sources completed successfully across the first run and the single-item retry. Total pages across those five sources: 441.
+- The initial failed attempt remains historical dead-letter data; the later successful attempt is the successful retry outcome for that source.
+- Unauthenticated-request 401 verification: Not independently repeated during this final test..
 
 ### 8. Week 2 Against Monday's Capacity Estimate
 
