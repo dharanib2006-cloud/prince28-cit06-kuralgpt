@@ -1399,7 +1399,49 @@ Comparison run: 2026-11-27T11:43+05:30
 | v3 | 6/20 | 30.0% |
 | v4 | 10/20 | 50.0% |
 
-**Best version:** v4 (10/20, 50.0%).
+**Best version before bilingual examples:** v4 (10/20, 50.0%).
+
+### Day 9 follow-up — bilingual router v5 and extraction run
+
+**Router evaluation (28 November 2026)**
+
+- Added `prompts/classify_v5.md` with one English and one Tamil worked example for each label: `docs`, `personal`, and `off_topic`.
+- Evaluation set: 20 questions; all previous prompt versions used cached results, while v5 was evaluated with 20 fresh model calls.
+- Results:
+
+| Version | Correct | Accuracy |
+|---|---:|---:|
+| v1 | 5/20 | 25.0% |
+| v2 | 9/20 | 45.0% |
+| v3 | 6/20 | 30.0% |
+| v4 | 10/20 | 50.0% |
+| **v5 (bilingual examples)** | **19/20** | **95.0%** |
+
+- v5 classification breakdown:
+
+| True label | docs | personal | off_topic | invalid |
+|---|---:|---:|---:|---:|
+| docs | 8 | 1 | 0 | 0 |
+| personal | 0 | 6 | 0 | 0 |
+| off_topic | 0 | 0 | 5 | 0 |
+
+- v5 total: 19 correct and 1 incorrect out of 20. Accuracy improved by 45 percentage points over v4 on this fixed evaluation set.
+
+**Thirukkural metadata extraction (28 November 2026)**
+
+- Prompt version: `extract_v6`.
+- Command: `uv run python scripts/extract_metadata.py --limit 50 --rpm 6`.
+- Selected 50 `kural` documents from the SQL preview, IDs 509–558.
+- Successful extractions: 50.
+- Repaired after retry: 0.
+- Failed: 0.
+- Input tokens: 44,624.
+- Output tokens: 7,152.
+- Elapsed time: 826.9 seconds (about 13 minutes 47 seconds).
+- Provider/model shown in the successful call logs: Gemini `gemini-3.5-flash-lite`.
+- Every one of the 50 documents returned `SUCCESS` on the first attempt.
+
+**Result:** The Day 9 review's two requested gaps have been addressed: the bilingual router evaluation reached 95% (19/20), and metadata was successfully extracted for 50 Thirukkural documents. A single router evaluation item remained incorrect and is retained in the reported 19/20 score; no perfect-accuracy claim is made.
 
 ### Classification breakdown
 
@@ -1508,6 +1550,8 @@ Comparison run: 2026-11-27T11:43+05:30
 - Question 20 (`personal` → `docs`): Which Kural did my class 8 students ask me to explain again during today's lesson?
 
 ---
+
+
 
 ## D10 - Queue and Worker
 
