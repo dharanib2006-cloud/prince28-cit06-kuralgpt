@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     app_name: str = "kuralgpt"
     app_env: str = Field(pattern="^(local|ci|production)$")
 
-    # The commit this image was built from. CI sets it.
+    # CI images set GIT_SHA; Git-backed Render services expose RENDER_GIT_COMMIT.
     git_sha: str = Field(default_factory=lambda: os.getenv("RENDER_GIT_COMMIT", "dev"))
 
     # LLM gateway (Day 8). Keys default to empty so tests and CI never need them.
