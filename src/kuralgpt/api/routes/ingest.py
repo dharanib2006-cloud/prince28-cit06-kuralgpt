@@ -38,7 +38,7 @@ async def start(
 ) -> dict:
     """Create an ingestion job and enqueue its items."""
     if body.retry_failed:
-        records = await repo.failed_records(limit=body.limit)
+        records = await repo.failed_records(limit=body.limit, source=body.source)
         records = records[: body.limit]
     else:
         known = await repo.known_ids()

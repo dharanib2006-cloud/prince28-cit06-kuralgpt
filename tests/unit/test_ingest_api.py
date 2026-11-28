@@ -54,19 +54,31 @@ def test_ingest_returns_empty_when_nothing_to_do(client: TestClient, monkeypatch
     assert response.json()["job_id"] is None
 
 
-def test_ingest_retries_failed_records(client: TestClient):
+def test_ingest_retries_only_failed_records_matching_source(client: TestClient):
     repository = client.app.state.fake_ingest_repository
-    repository.records = [{"url": "https://example.com/failed.pdf", "path": "failed.pdf"}]
+    target = {
+        "url": "https://projectmadurai.org/pmuni0036.html",
+        "path": "pmuni0036.html",
+    }
+    unrelated = {
+        "url": "https://example.com/other.html",
+        "path": "other.html",
+    }
+    repository.records = [target, unrelated]
 
     response = client.post(
         "/v1/ingest",
-        json={"retry_failed": True, "limit": 1},
+        json={
+            "retry_failed": True,
+            "limit": 1,
+            "source": "pmuni0036.html",
+        },
         headers=ADMIN_HEADERS,
     )
 
     assert response.status_code == 202
     assert response.json()["queued"] == 1
-    assert repository.created_records == repository.records
+    assert repository.created_records == [target]
 
 
 def test_ingest_progress_returns_job(client: TestClient):

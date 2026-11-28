@@ -8,7 +8,7 @@ from uuid import uuid4
 
 from fastapi import Depends, HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased, selectinload
 
@@ -72,8 +72,8 @@ class IngestRepository:
         result = await self.session.scalars(select(Document.external_id))
         return set(result.all())
 
-    async def failed_records(self, limit: int = 2000) -> list[dict]:
-        """Return only the latest failed attempt for each source path."""
+    async def failed_records(self, limit: int = 2000, source: str = "") -> list[dict]:
+        """Return latest failed attempts, optionally restricted to a source substring."""
         later_item = aliased(IngestItem)
 
         later_attempt_exists = (
@@ -93,9 +93,20 @@ class IngestRepository:
                 ~later_attempt_exists,
             )
             .order_by(IngestItem.id.desc())
-            .limit(limit)
         )
 
+        source_filter = source.strip()
+        if source_filter:
+            pattern = f"%{source_filter}%"
+            statement = statement.where(
+                or_(
+                    IngestItem.record["path"].as_string().ilike(pattern),
+                    IngestItem.record["url"].as_string().ilike(pattern),
+                    IngestItem.record["source"].as_string().ilike(pattern),
+                )
+            )
+
+        statement = statement.limit(limit)
         result = await self.session.scalars(statement)
         return [item.record for item in result.all()]
 
