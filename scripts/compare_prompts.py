@@ -3,6 +3,7 @@
 import asyncio
 import hashlib
 import json
+import re
 import time
 from datetime import datetime
 from pathlib import Path
@@ -51,17 +52,28 @@ def cache_path(version: str, prompt: str, question: str) -> Path:
 
 
 def append_notes(section: str) -> None:
-    """Append or replace only this script's section in NOTES.md."""
+    """Replace the Day 9 comparison section without removing later day notes."""
     existing = NOTES_FILE.read_text(encoding="utf-8") if NOTES_FILE.exists() else ""
     marker = "## Day 9 — Prompt comparison"
+    start = existing.find(marker)
 
-    if marker in existing:
-        existing = existing.split(marker, 1)[0].rstrip()
+    if start >= 0:
+        after_marker = existing[start + len(marker) :]
+        next_heading = re.search(r"(?m)^## (?!Day 9 — Prompt comparison$).+", after_marker)
+        if next_heading:
+            suffix = after_marker[next_heading.start() :].lstrip()
+        else:
+            suffix = ""
+        prefix = existing[:start].rstrip()
+    else:
+        prefix = existing.rstrip()
+        suffix = ""
 
-    NOTES_FILE.write_text(
-        existing.rstrip() + "\n\n" + marker + "\n\n" + section.strip() + "\n",
-        encoding="utf-8",
-    )
+    updated = f"{prefix}\n\n{marker}\n\n{section.strip()}\n"
+    if suffix:
+        updated += f"\n{suffix}"
+
+    NOTES_FILE.write_text(updated, encoding="utf-8")
 
 
 async def main() -> None:
