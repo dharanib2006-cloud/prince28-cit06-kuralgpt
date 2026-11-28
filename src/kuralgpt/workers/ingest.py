@@ -15,7 +15,7 @@ from kuralgpt.models import IngestItem
 
 logger = logging.getLogger(__name__)
 
-PROMPT_VERSION = 6
+PROMPT_VERSION = 7
 
 
 def plan(
