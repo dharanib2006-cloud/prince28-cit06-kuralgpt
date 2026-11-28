@@ -3,7 +3,6 @@
 import asyncio
 import hashlib
 import json
-import re
 import time
 from datetime import datetime
 from pathlib import Path
@@ -52,23 +51,36 @@ def cache_path(version: str, prompt: str, question: str) -> Path:
 
 
 def append_notes(section: str) -> None:
-    """Replace the Day 9 comparison section without removing later day notes."""
+    """Replace the Day 9 comparison section in NOTES.md."""
     existing = NOTES_FILE.read_text(encoding="utf-8") if NOTES_FILE.exists() else ""
-    marker = "## Day 9 — Prompt comparison"
-    start = existing.find(marker)
 
-    if start >= 0:
-        after_marker = existing[start + len(marker) :]
-        next_heading = re.search(r"(?m)^## (?!Day 9 — Prompt comparison$).+", after_marker)
-        suffix = after_marker[next_heading.start() :].lstrip() if next_heading else ""
-        prefix = existing[:start].rstrip()
+    start_marker = "<!-- prompts:start -->"
+    end_marker = "<!-- prompts:end -->"
+    heading = "## Day 9 — Prompt comparison"
+
+    section_content = f"{start_marker}\n{heading}\n\n{section.strip()}\n{end_marker}"
+
+    if start_marker in existing and end_marker in existing:
+        before = existing.split(start_marker, 1)[0]
+        after = existing.split(end_marker, 1)[1]
+        updated = before.rstrip() + "\n\n" + section_content + after
+
     else:
-        prefix = existing.rstrip()
-        suffix = ""
+        lines = existing.splitlines()
+        start = next(
+            (i for i, line in enumerate(lines) if line.strip() == heading),
+            None,
+        )
 
-    updated = f"{prefix}\n\n{marker}\n\n{section.strip()}\n"
-    if suffix:
-        updated += f"\n{suffix}"
+        if start is not None:
+            end = next(
+                (i for i in range(start + 1, len(lines)) if lines[i].startswith("## ")),
+                len(lines),
+            )
+            lines[start:end] = section_content.splitlines()
+            updated = "\n".join(lines) + "\n"
+        else:
+            updated = existing.rstrip() + "\n\n" + section_content + "\n"
 
     NOTES_FILE.write_text(updated, encoding="utf-8")
 

@@ -15,8 +15,8 @@ from pypdf import PdfReader
 ROOT = Path(__file__).resolve().parents[1]
 NOTES = ROOT / "NOTES.md"
 
-START_MARKER = "<!-- parser-comparison-start -->"
-END_MARKER = "<!-- parser-comparison-end -->"
+START_MARKER = "<!-- parsers:start -->"
+END_MARKER = "<!-- parsers:end -->"
 
 
 class PlainHTMLParser(HTMLParser):
