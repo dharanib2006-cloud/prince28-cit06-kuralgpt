@@ -104,3 +104,22 @@ def test_prompt_files_and_testset_exist():
         and row.get("label") in valid_labels
         for row in rows
     )
+
+
+def test_classify_v5_has_english_and_tamil_examples_for_each_label():
+    root = Path(__file__).resolve().parents[2]
+    prompt_path = root / "prompts" / "classify_v5.md"
+    prompt = prompt_path.read_text(encoding="utf-8")
+
+    for label in ("docs", "personal", "off_topic"):
+        assert f"### {label} — English" in prompt
+        assert f"### {label} — Tamil" in prompt
+
+    rows = [
+        json.loads(line)
+        for line in (root / "eval" / "prompt_testset.jsonl")
+        .read_text(encoding="utf-8")
+        .splitlines()
+        if line.strip()
+    ]
+    assert find_leaks(prompt, [row["question"] for row in rows]) == []
