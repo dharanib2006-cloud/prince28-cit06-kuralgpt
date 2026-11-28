@@ -60,10 +60,7 @@ def append_notes(section: str) -> None:
     if start >= 0:
         after_marker = existing[start + len(marker) :]
         next_heading = re.search(r"(?m)^## (?!Day 9 — Prompt comparison$).+", after_marker)
-        if next_heading:
-            suffix = after_marker[next_heading.start() :].lstrip()
-        else:
-            suffix = ""
+        suffix = after_marker[next_heading.start() :].lstrip() if next_heading else ""
         prefix = existing[:start].rstrip()
     else:
         prefix = existing.rstrip()
