@@ -35,6 +35,15 @@ def test_health_includes_git_sha(monkeypatch):
     }
 
 
+def test_settings_uses_render_git_commit_as_default(monkeypatch):
+    monkeypatch.delenv("GIT_SHA", raising=False)
+    monkeypatch.setenv("RENDER_GIT_COMMIT", "render-commit-456")
+
+    settings = Settings(_env_file=None, app_env="ci")
+
+    assert settings.git_sha == "render-commit-456"
+
+
 def test_ready_when_at_least_20_records_are_loaded(tmp_path):
     settings = Settings(app_env="ci", data_file=tmp_path / "unused.json")
     mock_session = AsyncMock()

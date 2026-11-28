@@ -1,5 +1,6 @@
 """Application configuration and environment settings."""
 
+import os
 from functools import lru_cache
 from pathlib import Path
 
@@ -19,8 +20,8 @@ class Settings(BaseSettings):
     app_name: str = "kuralgpt"
     app_env: str = Field(pattern="^(local|ci|production)$")
 
-    # The commit this image was built from. CI sets it.
-    git_sha: str = "dev"
+    # CI images set GIT_SHA; Git-backed Render services expose RENDER_GIT_COMMIT.
+    git_sha: str = Field(default_factory=lambda: os.getenv("RENDER_GIT_COMMIT", "dev"))
 
     # LLM gateway (Day 8). Keys default to empty so tests and CI never need them.
     gemini_api_key: str = ""
