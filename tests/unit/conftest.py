@@ -5,7 +5,14 @@ from unittest.mock import AsyncMock
 import pytest
 from fastapi.testclient import TestClient
 
-from kuralgpt.api.deps import get_db_session, get_gateway, get_usage_repository
+from kuralgpt.api.deps import (
+    get_db_session,
+    get_gateway,
+    get_ingest_queue,
+    get_ingest_repository,
+    get_manifest,
+    get_usage_repository,
+)
 from kuralgpt.api.main import create_app
 from kuralgpt.config import Settings
 from kuralgpt.llm.gateway import CircuitBreaker, FakeLLM, LLMResult
@@ -115,6 +122,56 @@ class FakeUsageRepository:
         ]
 
 
+class FakeIngestRepository:
+    """Fake ingestion database repository for API tests."""
+
+    def __init__(self):
+        self.records = []
+        self.created_records = []
+        self.job_id = "test-job-1"
+        self.item_ids = [1, 2]
+        self.progress_result = None
+        self.dead_letter_items = []
+
+    async def known_ids(self):
+        return set()
+
+    async def failed_records(self, limit=2000):
+        return self.records[:limit]
+
+    async def create(self, records):
+        self.created_records = records
+        return self.job_id, self.item_ids[: len(records)]
+
+    async def progress(self, job_id):
+        if job_id == self.job_id:
+            return self.progress_result
+        return None
+
+    async def dead_letter(self, limit=50):
+        return self.dead_letter_items[:limit]
+
+
+class FakeIngestQueue:
+    """Fake Redis queue for API tests."""
+
+    def __init__(self):
+        self.queued_item_ids = []
+
+    async def put(self, item_ids):
+        self.queued_item_ids.extend(item_ids)
+
+
+class FakeManifest:
+    """Fake manifest records for API tests."""
+
+    def __init__(self):
+        self.items = []
+
+    def records(self):
+        return self.items
+
+
 @pytest.fixture
 def data_file(tmp_path):
     path = tmp_path / "records.json"
@@ -201,7 +258,7 @@ def client(data_file, monkeypatch):
     async def override_get_db_session():
         yield mock_session
 
-    settings = Settings(app_env="ci", data_file=data_file)
+    settings = Settings(app_env="ci", data_file=data_file, admin_token="test-admin-token")
     app = create_app(settings)
 
     fake_gateway = FakeChatGateway()
@@ -210,6 +267,18 @@ def client(data_file, monkeypatch):
     app.dependency_overrides[get_db_session] = override_get_db_session
     app.dependency_overrides[get_gateway] = lambda: fake_gateway
     app.dependency_overrides[get_usage_repository] = lambda: FakeUsageRepository()
+
+    fake_ingest_repository = FakeIngestRepository()
+    fake_ingest_queue = FakeIngestQueue()
+    fake_manifest = FakeManifest()
+
+    app.dependency_overrides[get_ingest_repository] = lambda: fake_ingest_repository
+    app.dependency_overrides[get_ingest_queue] = lambda: fake_ingest_queue
+    app.dependency_overrides[get_manifest] = lambda: fake_manifest
+
+    app.state.fake_ingest_repository = fake_ingest_repository
+    app.state.fake_ingest_queue = fake_ingest_queue
+    app.state.fake_manifest = fake_manifest
 
     with TestClient(app) as test_client:
         yield test_client
