@@ -1,6 +1,13 @@
 """Tests for the prompt comparison report writer."""
 
-from scripts import compare_prompts
+import importlib.util
+from pathlib import Path
+
+SCRIPT_PATH = Path(__file__).resolve().parents[2] / "scripts" / "compare_prompts.py"
+SPEC = importlib.util.spec_from_file_location("compare_prompts", SCRIPT_PATH)
+assert SPEC is not None and SPEC.loader is not None
+compare_prompts = importlib.util.module_from_spec(SPEC)
+SPEC.loader.exec_module(compare_prompts)
 
 
 def test_append_notes_preserves_later_day_sections(tmp_path, monkeypatch):
